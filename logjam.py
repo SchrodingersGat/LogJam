@@ -51,148 +51,198 @@ def externExit():
     
     return s
     
+#class for simplifying generation of code
+class CodeWriter:
+    def __init__(self, fname):
+        self.fname = fname
+        
+        self.clear()
+        
+    def tabIn(self):
+        self.tabs += 1
+        
+    def tabOut(self):
+        if self.tabs > 0:
+            self.tabs -= 1
+            
+    def append(self, text):
+        self.text = self.text + '\t' * self.tabs + text
+        
+    def appendLine(self, text=None):
+        if not text:
+            self.append('\n')
+        else:
+            self.append(text + '\n')
+            
+    def openBrace(self):
+        self.appendLine('{')
+        self.tabIn()
+    
+    def closeBrace(self):
+        self.tabOut()
+        self.appendLine('}')
+        
+    def writeToFile(self):
+        with open(self.fname,'w') as file:
+            file.write(self.text)
+            
+    def clear(self):
+        self.text = ''
+        self.tabs = 0
+    
 class LogHeaderFile:
-    def __init__(self, vars, prefix, version):
+    def __init__(self, vars, prefix, version, outputdir=None):
         self.variables = vars
         self.prefix = prefix
         self.version = version
         
-    #function for adding a variable to the struct
-    def variableAdditionHeaderString(self, var):
+        hfile = headerFilename(prefix) + '.h'
+        cfile = headerFilename(prefix) + '.c'
         
-        s  = "inline void "
-        s += "Log_" + self.prefix + "_Add"
-        s += var.name 
-        s += "(" 
-        s += self.prefixString()
-        s += "* log, "
-        s += var.format + " data)"
+        if outputdir:
+            hfile = os.path.join(outputdir, hfile)
+            cfile = os.path.join(outputdir, cfile)
         
-        return s
-        
-    def variableAdditionFunctionString(self, var):
-        
-        s  = self.variableAdditionHeaderString(var)
-        s += "\n"
-        s += "\t"
-        
-        #if the var bit is already set, 
+        self.hFile = CodeWriter(hfile)
+        self.cFile = CodeWriter(cfile)
     
-    def headerString(self):
-        header  = "#ifndef {h}\n".format(h=headerDefine(self.prefix))
-        header += "#define {h}\n".format(h=headerDefine(self.prefix))
-
-        return header
+    def createHeaderEntry(self):
+        self.hFile.appendLine("#ifndef {h}".format(h=headerDefine(self.prefix)))
+        self.hFile.appendLine("#define {h}".format(h=headerDefine(self.prefix)))
         
-    def footerString(self):
-        footer  = "#endif //{h}\n".format(h=headerDefine(self.prefix))
-        
-        return footer
+    def createHeaderExit(self):
+        self.hFile.appendLine("#endif //{h}".format(h=headerDefine(self.prefix)))
 
+    def createHeaderInclude(self):
+        self.cFile.appendLine("#include {file}.h".format(file=headerFilename(self.prefix)))
+        
     def constructCodeFile(self):
         
+        self.cFile.clear()
+        
         #include the header file
-        s = "#include " + headerFilename(self.prefix) + ".h\n"
+        self.createHeaderInclude()
+        self.cFile.appendLine()
         
-        
-        
-        #finish with a new-line
-        s += "\n"
-        
-        return s
+        #add in the functions to add variables
+        for v in self.variables:
+            self.cFile.appendLine()
+            self.createAdditionFunction(v)
        
     def constructHeaderFile(self):
+        
+        self.hFile.clear()
+        
+        self.createHeaderEntry()
+        
+        self.hFile.appendLine()
+        
+        self.hFile.appendLine(externEntry())
+        
+        self.hFile.appendLine()
+        self.hFile.appendLine("//Bitfield struct definition for the " + self.prefix + " logging struct")
+        self.createBitfieldStruct()
+        self.hFile.appendLine()
+        self.hFile.appendLine("//Data struct definition for the " + self.prefix + " logging struct\n")
+        self.createDataStruct()
+        self.hFile.appendLine()
+        self.hFile.appendLine("//Structure for complete definition of the " + self.prefix + " logging protocol\n")
+        self.hFile.appendLine('typedef struct')
+        self.hFile.openBrace()
+        self.hFile.appendLine("//Cumulative size of the logging struct")
+        self.hFile.appendLine("uint16_t size;")
+        self.hFile.appendLine()
+        self.hFile.appendLine("//Bitfield defining which variables are selected")
+        self.hFile.appendLine(bitfieldStruct(self.prefix) + " selection;")
+        self.hFile.appendLine()
+        self.hFile.appendLine("//Struct defining the actual data to be logged")
+        self.hFile.appendLine(dataStruct(self.prefix) + " data;")
+        self.hFile.tabOut()
+        
+        self.hFile.appendLine("} " + topLevelStruct(self.prefix) + ";")
+        
+        self.hFile.appendLine("\n")
+        
+        self.hFile.appendLine('//Function prototypes for adding the variables to the data struct')
+        
+        #add in the 'addition' functions
+        for var in self.variables:
+            self.hFile.appendLine(var.getFunctionPrototype('add') + "; //Add " + var.prefix + " to the log struct")
+        
+        
+        self.hFile.appendLine("\n")
+        
+        self.hFile.appendLine()
+        self.hFile.appendLine(externExit())
+        
+        self.createHeaderExit()
     
-        log_struct = LogStruct(self.variables, self.prefix, self.version)
-    
-        s  = self.headerString()
-        s += "\n"
+    def saveFiles(self):
         
-        #extern C
-        s += externEntry()
-        s += "\n"
+        self.constructHeaderFile()
+        self.constructCodeFile()
         
-        s += "//Bitfield struct definition for the " + self.prefix + " logging struct\n"
-        s += log_struct.bitfieldString()
-        s += "\n"
-        s += "//Data struct definition for the " + self.prefix + " logging struct\n"
-        s += log_struct.structString()
-        s += "\n"
-        s += "//Structure for complete definition of the " + self.prefix + " logging protocol\n"
-        s += "typedef struct {\n\n"
-        s += "\t//Cumulative size of the logging struct\n"
-        s += "\t" + "uint16_t size;\n\n"
-        s += "\t//Bitfield defining which variables are selected\n"
-        s += "\t" + bitfieldStruct(self.prefix) + " selection;\n"
-        s += "\n"
-        s += "\t//Struct defining the actual data to be logged\n"
-        s += "\t" + dataStruct(self.prefix) + " data;\n"
-        s += "\n"
-        s += "} "
-        s += topLevelStruct(self.prefix) + ";\n"
-        s += "\n"
-        
-        #extern C
-        s += externExit()
-        s += "\n"
-        
-        s += self.footerString()
-        
-        return s
-    
-    def saveFiles(self, output_dir = None):
-        
-        filename = headerFilename(self.prefix)
-        
-        if output_dir:
-            filename = os.path.join(output_dir, filename)
-            
-        with open(filename + ".h",'w') as f:
-            f.write(self.constructHeaderFile())
-        
-        with open(filename + '.c','w') as f:
-            f.write(self.constructCodeFile())
-            
-
-class LogStruct:
-    def __init__(self, vars, prefix, version):
-        self.variables = vars
-        self.prefix = prefix
-        self.version = version
+        self.hFile.writeToFile()
+        self.cFile.writeToFile() 
         
     #create the struct of the variables
-    def structString(self):
-        s  = "typedef struct {\n"
+    def createDataStruct(self):
+    
+        self.hFile.appendLine('typedef struct {')
+        
+        self.hFile.tabIn()
         
         for v in self.variables:
-            s += "\t"
-            s += v.dataString()
-            s += "\n"
-            
-        s += "} "
-        s += dataStruct(self.prefix)
-        s += ";\n"
+            self.hFile.appendLine(v.dataString())
         
-        return s
+        self.hFile.tabOut()
+        
+        self.hFile.appendLine('} ' + dataStruct(self.prefix) + ';')
         
     #create a bitfield struct of all variables
-    def bitfieldString(self):
-        s  = "typedef struct {\n"
+    def createBitfieldStruct(self):
+    
+        self.hFile.appendLine('typedef struct {')
+        
+        self.hFile.tabIn()
         
         for v in self.variables:
-            s += "\t"
-            s += v.bitfieldString()
-            s += "\n"
+            self.hFile.appendLine(v.bitfieldString())
             
-        s += "} "
-        s += bitfieldStruct(self.prefix)
-        s += ";\n"
+        self.hFile.tabOut()
         
-        return s
+        self.hFile.appendLine('} ' + bitfieldStruct(self.prefix) + ';')
+        
+    #create the function for adding a variable to the logging structure
+    def createAdditionFunction(self, var):
+    
+        self.cFile.appendLine('//Add variable {name} to the {prefix} logging struct\n'.format(
+                        name=var.name,
+                        prefix=self.prefix))
+                        
+        self.cFile.appendLine(var.getFunctionPrototype('add'))
+        self.cFile.openBrace()
+        
+        #check if the variable is already 'in' the log struct
+        #if it isn't, set the bit and increment the size
+        self.cFile.appendLine(var.checkNotBit())
+        self.cFile.openBrace()
+        self.cFile.appendLine(var.setBit())
+        self.cFile.appendLine(var.incrementSize())
+        self.cFile.closeBrace()
+        
+        self.cFile.closeBrace()
+        
 
 class LogVariable:
-    def __init__(self, name, format, comment):
-        self.prefix = name
+
+    #prefix = name of the 'device'
+    #name = name of this variable
+    #format = primitive datatype
+    #comment = comment string
+    def __init__(self, prefix, name, format, comment=None):
+        self.prefix = prefix
+        self.name = name
         self.format = self.parseFormat(format)
         self.comment = "//!< " + str(comment) if comment else ""
         
@@ -204,31 +254,62 @@ class LogVariable:
             
         return format
         
+    #datatype definition string (with comment appended)
     def dataString(self):
         return "{datatype} {name}; {comment}".format(
                 datatype = self.format,
-                name = self.prefix,
-                comment = self. comment)
+                name = self.name,
+                comment = self.comment)
                 
+    #bitfield definition string (with comment appended)
     def bitfieldString(self):
         return "unsigned {name} : 1; {comment}".format(
-                name = self.prefix,
+                name = self.name,
                 comment = self.comment)
                 
     #wrap a given function name
     def getFunctionName(self, fnName):
-        return "Log_{fn}{fn}".format(name=self.prefix, fn=fnName)
+        return "Log_{fn}{name}".format(name=self.name.capitalize(), fn=fnName.capitalize())
         
-                
-    #function for adding a variable to the log
-    def additionHeaderString(self):
-        s  = 'inline void '
-        s += self.getFunctionName('Add')
+    #get a prototype for a function of a given name
+    def getFunctionPrototype(self, fname):
+        s  = 'void '
+        s += self.getFunctionName(fname)
         s += '('
         s += topLevelStruct(self.prefix)
-        s += "* log, "
+        s += '* log, '
         s += self.format
-        s += " data)"
+        s += ' ' + self.name.lower() + ')'
+        
+        return s
+        
+    #assume there is always a pointer to *log
+    
+    #check if a bit is set
+    def checkBit(self):
+        return 'if (log->selection.{name})'.format(name=self.name)
+
+    #check if a bit is not set
+    def checkNotBit(self):
+        return 'if (log->selection.{name} == 0)'.format(name=self.name)
+    
+    #code prototype to set the selection bit
+    def setBit(self):
+        return 'log->selection.{name} = 1; //Set the {name} bit'.format(name=self.name)
+        
+    #code prototype to clear the selection bit
+    def clearBit(self):
+        return 'log->selection.{name} = 0; //Clear the {name} bit'.format(name=self.name)
+        
+    #increment the 'size' counter by the size of this datatype
+    def incrementSize(self):
+        s  = 'log->size += sizeof({data}); //Increment the size counter'.format(data=self.format)
+        return s
+        
+    #set the 'size' field to zero
+    def clearSize(self):
+        return 'log->size = 0; //Clear the size counter'
+
         
 with open(xml_file, 'rt') as xml:
     tree = ElementTree.parse(xml)
@@ -278,7 +359,7 @@ with open(xml_file, 'rt') as xml:
             print('Type missing for', a)
             continue
             
-        variables.append(LogVariable(name,datatype,comment))
+        variables.append(LogVariable(prefix,name,datatype,comment))
         
     lf = LogHeaderFile(variables, prefix, version)
     
