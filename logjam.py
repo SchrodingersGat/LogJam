@@ -242,7 +242,7 @@ class LogFile:
     def createFunctionPrototype(self, name, inline=False, returnType='void', params={}):
         
         #pass extra parameters to the function as such
-        #paramsa = {'dest': 'void*'} (name, type)
+        #params = {'*dest': 'void'} (name, type)
         paramstring = ""
         for k in params.keys():
             paramstring += ', '
@@ -289,7 +289,7 @@ class LogFile:
         self.cFile.appendLine()
         
     def copyAllPrototype(self):
-        return self.createFunctionPrototype('CopyAll',params={'dest' : 'void*'})
+        return self.createFunctionPrototype('CopyAll',params={'*dest' : 'void'})
         
     #create a function to copy ALL parameters across, conserving data format
     def createCopyAllFunction(self):
@@ -304,7 +304,7 @@ class LogFile:
         self.cFile.appendLine()
 
     def copySelectedPrototype(self):
-        return self.createFunctionPrototype('CopySelected',params={'*selection' : bitfieldStruct(self.prefix), 'dest' : 'void*'}, returnType='uint16_t')
+        return self.createFunctionPrototype('CopySelected',params={'*selection' : bitfieldStruct(self.prefix), '*dest' : 'void'}, returnType='uint16_t')
         
     #create a function that copies across ONLY the bits that are set
     def createCopySelectedFunction(self):
@@ -333,7 +333,7 @@ class LogFile:
         self.cFile.appendLine()        
         
     def copyDataPrototype(self):
-        return self.createFunctionPrototype('CopyData',params={'dest' : 'void*'}, returnType='uint16_t')
+        return self.createFunctionPrototype('CopyData',params={'*dest' : 'void'}, returnType='uint16_t')
         
     #create a function that copies across ONLY the bits that are set
     def createCopyDataFunction(self):
