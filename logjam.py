@@ -2,6 +2,10 @@ import sys
 import os
 import re
 
+from code_writer import CodeWriter
+
+LOGJAM_VERSION = "0.1"
+
 def close(*arg):
     print(" ".join(map(str,arg)))
     sys.exit(0)
@@ -51,45 +55,6 @@ def externExit():
     
     return s
     
-#class for simplifying generation of code
-class CodeWriter:
-    def __init__(self, fname):
-        self.fname = fname
-        
-        self.clear()
-        
-    def tabIn(self):
-        self.tabs += 1
-        
-    def tabOut(self):
-        if self.tabs > 0:
-            self.tabs -= 1
-            
-    def append(self, text):
-        self.text = self.text + '\t' * self.tabs + text
-        
-    def appendLine(self, text=None):
-        if not text:
-            self.append('\n')
-        else:
-            self.append(text + '\n')
-            
-    def openBrace(self):
-        self.appendLine('{')
-        self.tabIn()
-    
-    def closeBrace(self):
-        self.tabOut()
-        self.appendLine('}')
-        
-    def writeToFile(self):
-        with open(self.fname,'w') as file:
-            file.write(self.text)
-            
-    def clear(self):
-        self.text = ''
-        self.tabs = 0
-    
 class LogHeaderFile:
     def __init__(self, vars, prefix, version, outputdir=None):
         self.variables = vars
@@ -115,6 +80,19 @@ class LogHeaderFile:
 
     def createHeaderInclude(self):
         self.cFile.appendLine('#include "{file}.h"'.format(file=headerFilename(self.prefix)))
+        
+    def createAutogenInfo(self):
+        self.hFile.append("/*")
+        self.hFile.tabIn()
+        self.hFile.appendLine("//This file was created using LogJam v{version}".format(version=LOGJAM_VERSION))
+        
+        self.hFile.tabOut()
+        self.hFile.appendLine("//")
+        
+    def createVersionString(self):
+        self.hFile.appendLine('#define {prefix}_GetLogVersion() {{return "{version}";}}\n'.format(
+                        prefix=self.prefix,
+                        version=self.version))
         
     def constructCodeFile(self):
         
@@ -142,6 +120,8 @@ class LogHeaderFile:
         self.hFile.appendLine()
         
         self.hFile.appendLine(externEntry())
+        
+        self.createVersionString()
         
         self.hFile.appendLine("//Bitfield struct definition for the " + self.prefix + " logging struct")
         self.createBitfieldStruct()
