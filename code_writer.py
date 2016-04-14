@@ -102,7 +102,7 @@ class CodeWriter:
         self.endIf()
         
     def externExit(self):
-        self.startIf('__cpluscplus', comment='We are done playing nice with C++ compilers')
+        self.startIf('__cplusplus', comment='We are done playing nice with C++ compilers')
         self.appendLine('}')
         self.endIf()
         
