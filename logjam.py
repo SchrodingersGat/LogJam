@@ -114,7 +114,7 @@ class LogHeaderFile:
         self.hFile.appendLine("#endif //{h}".format(h=headerDefine(self.prefix)))
 
     def createHeaderInclude(self):
-        self.cFile.appendLine("#include {file}.h".format(file=headerFilename(self.prefix)))
+        self.cFile.appendLine('#include "{file}.h"'.format(file=headerFilename(self.prefix)))
         
     def constructCodeFile(self):
         
@@ -122,7 +122,6 @@ class LogHeaderFile:
         
         #include the header file
         self.createHeaderInclude()
-        self.cFile.appendLine()
         
         #add in the functions to add variables
         for v in self.variables:
@@ -137,16 +136,20 @@ class LogHeaderFile:
         
         self.hFile.appendLine()
         
-        self.hFile.appendLine(externEntry())
+        self.hFile.appendLine("#include <stdint.h> //Primitive definitions")
+        self.hFile.appendLine("#include <string.h> //memcpy function")
         
         self.hFile.appendLine()
+        
+        self.hFile.appendLine(externEntry())
+        
         self.hFile.appendLine("//Bitfield struct definition for the " + self.prefix + " logging struct")
         self.createBitfieldStruct()
         self.hFile.appendLine()
-        self.hFile.appendLine("//Data struct definition for the " + self.prefix + " logging struct\n")
+        self.hFile.appendLine("//Data struct definition for the " + self.prefix + " logging struct")
         self.createDataStruct()
         self.hFile.appendLine()
-        self.hFile.appendLine("//Structure for complete definition of the " + self.prefix + " logging protocol\n")
+        self.hFile.appendLine("//Structure for complete definition of the " + self.prefix + " logging protocol")
         self.hFile.appendLine('typedef struct')
         self.hFile.openBrace()
         self.hFile.appendLine("//Cumulative size of the logging struct")
@@ -158,10 +161,16 @@ class LogHeaderFile:
         self.hFile.appendLine("//Struct defining the actual data to be logged")
         self.hFile.appendLine(dataStruct(self.prefix) + " data;")
         self.hFile.tabOut()
+        self.hFile.appendLine()
         
         self.hFile.appendLine("} " + topLevelStruct(self.prefix) + ";")
         
-        self.hFile.appendLine("\n")
+        self.hFile.appendLine()
+        
+        self.hFile.appendLine("//Reset the bitfield of the logging structure")
+        self.hFile.appendLine(self.createResetPrototype() + ";")
+        
+        self.hFile.appendLine()
         
         self.hFile.appendLine('//Function prototypes for adding the variables to the data struct')
         
@@ -169,8 +178,6 @@ class LogHeaderFile:
         for var in self.variables:
             self.hFile.appendLine(var.getFunctionPrototype('add') + "; //Add " + var.prefix + " to the log struct")
         
-        
-        self.hFile.appendLine("\n")
         
         self.hFile.appendLine()
         self.hFile.appendLine(externExit())
@@ -216,7 +223,7 @@ class LogHeaderFile:
     #create the function for adding a variable to the logging structure
     def createAdditionFunction(self, var):
     
-        self.cFile.appendLine('//Add variable {name} to the {prefix} logging struct\n'.format(
+        self.cFile.appendLine('//Add variable {name} to the {prefix} logging struct'.format(
                         name=var.name,
                         prefix=self.prefix))
                         
@@ -225,13 +232,34 @@ class LogHeaderFile:
         
         #check if the variable is already 'in' the log struct
         #if it isn't, set the bit and increment the size
+        self.cFile.appendLine("//Check if the '{data}' is already in the logging struct".format(
+                            data=var.name))
         self.cFile.appendLine(var.checkNotBit())
         self.cFile.openBrace()
         self.cFile.appendLine(var.setBit())
         self.cFile.appendLine(var.incrementSize())
         self.cFile.closeBrace()
         
+        self.cFile.appendLine()
+        #now actually add the variable in
+        self.cFile.appendLine(var.addVariable())
+        
         self.cFile.closeBrace()
+        
+    def createResetPrototype(self):
+        return "void {prefix}Log_Reset(void)".format(prefix=self.prefix)
+        
+    def createResetFunction(self):
+        
+        #add the reset function to the c file
+        self.cFile.appendLine('//Reset the log data struct (e.g. after writing to memory)')
+        self.cFile.appendLine(self.createResetPrototype())
+        self.cFile.openBrace()
+        
+        self.cFile.appendLine("memset(log,0,sizeof(" + topLevelStruct(self.prefix) + ");")
+        
+        self.cFile.closeBrace()
+        self.cFile.appendLine()
         
 
 class LogVariable:
@@ -269,7 +297,7 @@ class LogVariable:
                 
     #wrap a given function name
     def getFunctionName(self, fnName):
-        return "Log_{fn}{name}".format(name=self.name.capitalize(), fn=fnName.capitalize())
+        return "{prefix}Log_{fn}{name}".format(prefix=self.prefix.capitalize(),name=self.name.capitalize(), fn=fnName.capitalize())
         
     #get a prototype for a function of a given name
     def getFunctionPrototype(self, fname):
@@ -309,6 +337,10 @@ class LogVariable:
     #set the 'size' field to zero
     def clearSize(self):
         return 'log->size = 0; //Clear the size counter'
+        
+    #add the variable to the struct
+    def addVariable(self):
+        return "log->data.{name} = {name}; //Add the '{name}' variable".format(name=self.name)
 
         
 with open(xml_file, 'rt') as xml:
