@@ -136,8 +136,6 @@ class LogFile:
         self.hFile.appendCommentLine("Structure for complete definition of the " + self.prefix + " logging protocol")
         self.hFile.appendLine('typedef struct')
         self.hFile.openBrace()
-        self.hFile.appendCommentLine("Cumulative size of the logging struct")
-        self.hFile.appendLine("uint16_t size;")
         self.hFile.appendLine()
         self.hFile.appendCommentLine("Bitfield defining which variables are selected")
         self.hFile.appendLine(bitfieldStruct(self.prefix) + " selection;")
@@ -235,18 +233,7 @@ class LogFile:
                         
         self.cFile.appendLine(var.getFunctionPrototype('add',inline=True))
         self.cFile.openBrace()
-        
-        #check if the variable is already 'in' the log struct
-        #if it isn't, set the bit and increment the size
-        self.cFile.appendCommentLine("Check if the '{data}' is already in the logging struct".format(
-                            data=var.name))
-        self.cFile.appendLine(var.checkNotBit())
-        self.cFile.openBrace()
         self.cFile.appendLine(var.setBit())
-        self.cFile.appendLine(var.incrementSize())
-        self.cFile.closeBrace()
-        
-        self.cFile.appendLine()
         #now actually add the variable in
         self.cFile.appendLine(var.addVariable())
         
@@ -297,7 +284,7 @@ class LogFile:
         self.cFile.appendCommentLine("Initialize the log data struct to zero")
         self.cFile.appendLine(self.initPrototype())
         self.cFile.openBrace()
-        self.cFile.appendLine('memset(&log,0,sizeof({struct}));'.format(struct=topLevelStruct(self.prefix)))
+        self.cFile.appendLine('memset(log,0,sizeof({struct}));'.format(struct=topLevelStruct(self.prefix)))
         self.cFile.closeBrace()
         self.cFile.appendLine()
         
@@ -317,7 +304,7 @@ class LogFile:
         self.cFile.appendLine()
 
     def copySelectedPrototype(self):
-        return self.createFunctionPrototype('CopySelected',params={'selection' : bitfieldStruct(self.prefix), 'dest' : 'void*'}, returnType='uint16_t')
+        return self.createFunctionPrototype('CopySelected',params={'*selection' : bitfieldStruct(self.prefix), 'dest' : 'void*'}, returnType='uint16_t')
         
     #create a function that copies across ONLY the bits that are set
     def createCopySelectedFunction(self):
@@ -439,11 +426,6 @@ class LogVariable:
         
     def getPtr(self):
         return '&(log->data.{name})'.format(name=self.name)
-        
-    #increment the 'size' counter by the size of this datatype
-    def incrementSize(self):
-        s  = 'log->size += sizeof(log->data.{name}); //Increment the size counter'.format(name=self.name)
-        return s
         
     #add the variable to the struct
     def addVariable(self):
