@@ -96,7 +96,8 @@ class LogFile:
         self.createInitFunction()
         self.createResetFunction()
         self.createCopyAllFunction()
-        self.createCopySomeFunction()
+        self.createCopySelectedFunction()
+        self.createCopyDataFunction()
         
         self.cFile.appendLine()
         self.cFile.startComment()
@@ -164,8 +165,11 @@ class LogFile:
         self.hFile.appendCommentLine('Copy *all* data from the logging structure')
         self.hFile.appendLine(self.copyAllPrototype() + ';')
         
-        self.hFile.appendCommentLine("Copy *some* of the data from the logging structure")
-        self.hFile.appendLine(self.copySomePrototype() + ";")
+        self.hFile.appendCommentLine("Copy *selected* data from the logging structure")
+        self.hFile.appendLine(self.copySelectedPrototype() + ";")
+        
+        self.hFile.appendCommentLine("Copy data that has been written")
+        self.hFile.appendLine(self.copyDataPrototype() + ';')
         
         self.hFile.appendLine()
         
@@ -311,24 +315,24 @@ class LogFile:
         self.cFile.appendLine('memcpy(dest, &(log->data), sizeof({struct}));'.format(struct=dataStruct(self.prefix)))
         self.cFile.closeBrace()
         self.cFile.appendLine()
-        
-    def copySomePrototype(self):
-        return self.createFunctionPrototype('CopySome',params={'dest' : 'void*'}, returnType='uint16_t')
+
+    def copySelectedPrototype(self):
+        return self.createFunctionPrototype('CopySelected',params={'selection' : bitfieldStruct(self.prefix), 'dest' : 'void*'}, returnType='uint16_t')
         
     #create a function that copies across ONLY the bits that are set
-    def createCopySomeFunction(self):
-        self.cFile.appendCommentLine("Copy across data whose selection bit is set")
+    def createCopySelectedFunction(self):
+        self.cFile.appendCommentLine("Copy across data whose selection bit is set in the provided bitfield")
         self.cFile.appendCommentLine("Only data selected will be copied (in sequence)")
         self.cFile.appendCommentLine("Ensure a copy of the selection bits is stored for decoding")
-        self.cFile.appendLine(self.copySomePrototype());
+        self.cFile.appendLine(self.copySelectedPrototype());
         self.cFile.openBrace()
-        self.cFile.appendLine('void* ptr = dest;')
+        self.cFile.appendLine('void* ptr = dest; //Pointer for keeping track of data addressing')
         self.cFile.appendLine('uint16_t count = 0; //Variable for keeping track of how many bytes were copied')
         self.cFile.appendLine()
         self.cFile.appendCommentLine('Check each variable in the logging struct to see if it should be added')
         
         for var in self.variables:
-            self.cFile.appendLine(var.checkBit())
+            self.cFile.appendLine(var.checkExternalBit('selection'))
             self.cFile.openBrace()
             #copy the data across
             self.cFile.appendLine('memcpy(ptr, {ptr}, {size}); //Copy the data'.format(ptr=var.getPtr(), size=var.getSize()))
@@ -338,6 +342,23 @@ class LogFile:
         
         self.cFile.appendLine()
         self.cFile.appendLine('return count; //Return the number of bytes that were actually copied')
+        self.cFile.closeBrace()
+        self.cFile.appendLine()        
+        
+    def copyDataPrototype(self):
+        return self.createFunctionPrototype('CopyData',params={'dest' : 'void*'}, returnType='uint16_t')
+        
+    #create a function that copies across ONLY the bits that are set
+    def createCopyDataFunction(self):
+        self.cFile.appendCommentLine("Copy across data whose selection bit is set within " + topLevelStruct(self.prefix))
+        self.cFile.appendCommentLine("Only data selected will be copied (in sequence)")
+        self.cFile.appendCommentLine("Ensure a copy of the selection bits is stored for decoding")
+        self.cFile.appendLine(self.copyDataPrototype());
+        self.cFile.openBrace()
+        
+        #we have already defined the CopySelected function, which can be chained here
+        self.cFile.appendLine('return {prefix}Log_CopySelected(log,dest,&(log->selection));'.format(prefix=self.prefix.capitalize()))
+        
         self.cFile.closeBrace()
         self.cFile.appendLine()
 
@@ -397,6 +418,10 @@ class LogVariable:
     def checkBit(self):
         return 'if (log->selection.{name})'.format(name=self.name)
 
+    #check if a bit is set (in an external bitfield)
+    def checkExternalBit(self, field):
+        return 'if ({field}->{name})'.format(field=field,name=self.name)
+        
     #check if a bit is not set
     def checkNotBit(self):
         return 'if (log->selection.{name} == 0)'.format(name=self.name)
