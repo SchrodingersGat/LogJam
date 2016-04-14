@@ -176,7 +176,7 @@ class LogHeaderFile:
         
         #add in the 'addition' functions
         for var in self.variables:
-            self.hFile.appendLine(var.getFunctionPrototype('add') + "; //Add " + var.prefix + " to the log struct")
+            self.hFile.appendLine(var.getFunctionPrototype('add',inline=True) + "; //Add " + var.prefix + " to the log struct")
         
         
         self.hFile.appendLine()
@@ -227,7 +227,7 @@ class LogHeaderFile:
                         name=var.name,
                         prefix=self.prefix))
                         
-        self.cFile.appendLine(var.getFunctionPrototype('add'))
+        self.cFile.appendLine(var.getFunctionPrototype('add',inline=True))
         self.cFile.openBrace()
         
         #check if the variable is already 'in' the log struct
@@ -300,8 +300,9 @@ class LogVariable:
         return "{prefix}Log_{fn}{name}".format(prefix=self.prefix.capitalize(),name=self.name.capitalize(), fn=fnName.capitalize())
         
     #get a prototype for a function of a given name
-    def getFunctionPrototype(self, fname):
-        s  = 'void '
+    def getFunctionPrototype(self, fname, inline=False):
+        s = 'inline ' if inline else ''
+        s += 'void '
         s += self.getFunctionName(fname)
         s += '('
         s += topLevelStruct(self.prefix)
@@ -331,7 +332,7 @@ class LogVariable:
         
     #increment the 'size' counter by the size of this datatype
     def incrementSize(self):
-        s  = 'log->size += sizeof({data}); //Increment the size counter'.format(data=self.format)
+        s  = 'log->size += sizeof(log->data.{name}); //Increment the size counter'.format(name=self.name)
         return s
         
     #set the 'size' field to zero
