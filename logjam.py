@@ -243,6 +243,10 @@ class LogFile:
         self.hFile.tabIn()
         
         for v in self.variables:
+            self.hFile.appendComment('Variable : {name}, {units}'.format(name=v.name,units=v.units))
+            
+            if v.scaler > 1:
+                self.hFile.appendComment('{name} will be scaled by {scaler} when decoded to a log file'.format(name=v.name,scaler=v.scaler))
             self.hFile.appendLine(v.dataString())
         
         self.hFile.tabOut()
@@ -433,11 +437,13 @@ class LogVariable:
     #name = name of this variable
     #format = primitive datatype
     #comment = comment string
-    def __init__(self, prefix, name, format, comment=None):
+    def __init__(self, prefix, name, format, comment=None, units='dimensionless', scaler=1.0):
         self.prefix = prefix
         self.name = name
         self.format = self.parseFormat(format)
         self.comment = "//!< " + str(comment) if comment else ""
+        self.units = units
+        self.scaler = scaler
         
     def parseFormat(self, format):
         format = format.replace("unsigned","uint")

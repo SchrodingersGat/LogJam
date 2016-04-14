@@ -79,6 +79,8 @@ with open(xml_file, 'rt') as xml:
         name = a.get('name',None)
         datatype = a.get('type',None)
         comment = a.get('comment',None)
+        units = a.get('units','dimensionless')
+        scaler = float(a.get('scaler',1))
         
         if not name:
             print('Name missing for', a)
@@ -87,7 +89,7 @@ with open(xml_file, 'rt') as xml:
             print('Type missing for', a)
             continue
             
-        variables.append(LogVariable(prefix,name,datatype,comment))
+        variables.append(LogVariable(prefix,name,datatype,comment,units=units, scaler=scaler))
         
     lf = LogFile(variables, prefix, version, outputdir=outputdir)
     
