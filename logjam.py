@@ -104,10 +104,12 @@ class LogFile:
         self.cFile.appendLine("Individual variable functions")
         self.cFile.finishComment()
         
+        self.cFile.appendLine()
+        
         #add in the functions to add variables
         for v in self.variables:
-            self.cFile.appendLine()
             self.createAdditionFunction(v)
+            self.createRemoveFunction(v)
        
     def constructHeaderFile(self):
         
@@ -176,11 +178,11 @@ class LogFile:
         self.hFile.appendLine("These functions are applied to individual variables within the logging structure")
         self.hFile.finishComment()
         
-        self.hFile.appendCommentLine('Function prototypes for adding the variables to the data struct')
         
         #add in the 'addition' functions
         for var in self.variables:
             self.hFile.appendLine(var.getFunctionPrototype('add',inline=True) + "; //Add " + var.prefix + " to the log struct")
+            self.hFile.appendLine(self.removePrototype(var) + ';')
         
         
         self.hFile.appendLine()
@@ -224,6 +226,21 @@ class LogFile:
         
         self.hFile.appendLine('} ' + bitfieldStruct(self.prefix) + ';')
         
+    def removePrototype(self, var):
+        return 'inline void {prefix}Log_Remove{name}({struct} *log)'.format(
+                prefix=self.prefix,
+                name=var.name.capitalize(),
+                struct=topLevelStruct(self.prefix))
+        
+    #create a function to remove a var from the logging structure
+    def createRemoveFunction(self, var):
+        self.cFile.appendCommentLine("Remove variable {name} from the {prefix} loggin structure".format(name=var.name,prefix=self.prefix))
+        self.cFile.appendLine(self.removePrototype(var))
+        self.cFile.openBrace()
+        self.cFile.appendLine(var.clearBit())
+        self.cFile.closeBrace()
+        self.cFile.appendLine()
+        
     #create the function for adding a variable to the logging structure
     def createAdditionFunction(self, var):
     
@@ -236,8 +253,8 @@ class LogFile:
         self.cFile.appendLine(var.setBit())
         #now actually add the variable in
         self.cFile.appendLine(var.addVariable())
-        
         self.cFile.closeBrace()
+        self.cFile.appendLine()
         
     def createFunctionPrototype(self, name, inline=False, returnType='void', params={}):
         
@@ -393,7 +410,7 @@ class LogVariable:
         s += self.getFunctionName(fname)
         s += '('
         s += topLevelStruct(self.prefix)
-        s += '* log, '
+        s += ' *log, '
         s += self.format
         s += ' ' + self.name.lower() + ')'
         
@@ -403,7 +420,7 @@ class LogVariable:
     
     #check if a bit is set
     def checkBit(self):
-        return 'if (log->selection.{name})'.format(name=self.name)
+        return 'if ({bit})'.format(bit=self.getBit())
 
     #check if a bit is set (in an external bitfield)
     def checkExternalBit(self, field):
@@ -411,15 +428,19 @@ class LogVariable:
         
     #check if a bit is not set
     def checkNotBit(self):
-        return 'if (log->selection.{name} == 0)'.format(name=self.name)
+        return 'if ({bit} == 0)'.format(bit=self.getBit())
+        
+    #return access to the selection bit
+    def getBit(self):
+        return 'log->selection.{name}'.format(name=self.name)
     
     #code prototype to set the selection bit
     def setBit(self):
-        return 'log->selection.{name} = 1; //Set the {name} bit'.format(name=self.name)
+        return '{bit} = 1; //Set the {name} bit'.format(bit=self.getBit(), name=self.name)
         
     #code prototype to clear the selection bit
     def clearBit(self):
-        return 'log->selection.{name} = 0; //Clear the {name} bit'.format(name=self.name)
+        return '{bit} = 0; //Clear the {name} bit'.format(bit=self.getBit(), name=self.name)
         
     def getSize(self):
         return 'sizeof(log->data.{name})'.format(name=self.name)
