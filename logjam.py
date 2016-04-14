@@ -128,10 +128,10 @@ class LogHeaderFile:
         self.cFile.appendLine("Global functions")
         self.cFile.finishComment()
         
-        #init function
         self.createInitFunction()
-        #reset function
         self.createResetFunction()
+        self.createCopyAllFunction()
+        self.createCopySomeFunction()
         
         self.cFile.appendLine()
         self.cFile.startComment()
@@ -191,10 +191,16 @@ class LogHeaderFile:
         self.hFile.finishComment()
         
         self.hFile.appendCommentLine("Initialize the logging structure")
-        self.hFile.appendLine(self.createFunctionPrototype('initialize') + ";")
+        self.hFile.appendLine(self.initPrototype() + ";")
         
         self.hFile.appendCommentLine("Reset the bitfield of the logging structure")
-        self.hFile.appendLine(self.createFunctionPrototype('reset') + ";")
+        self.hFile.appendLine(self.resetPrototype() + ";")
+        
+        self.hFile.appendCommentLine('Copy *all* data from the logging structure')
+        self.hFile.appendLine(self.copyAllPrototype() + ';')
+        
+        self.hFile.appendCommentLine("Copy *some* of the data from the logging structure")
+        self.hFile.appendLine(self.copySomePrototype() + ";")
         
         self.hFile.appendLine()
         
@@ -277,12 +283,27 @@ class LogHeaderFile:
         
         self.cFile.closeBrace()
         
-    def createFunctionPrototype(self, name, inline=False):
-        return '{inline}void {prefix}Log_{name}({struct} *log)'.format(
+    def createFunctionPrototype(self, name, inline=False, returnType='void', params={}):
+        
+        #pass extra parameters to the function as such
+        #paramsa = {'dest': 'void*'} (name, type)
+        paramstring = ""
+        for k in params.keys():
+            paramstring += ', '
+            paramstring += params[k]
+            paramstring += ' '
+            paramstring += k
+            
+        return '{inline}{returnType} {prefix}Log_{name}({struct} *log{params})'.format(
                     inline='inline ' if inline else '',
+                    returnType=returnType,
                     prefix=self.prefix.capitalize(),
-                    name=name.capitalize(),
-                    struct=topLevelStruct(self.prefix))
+                    name=name,
+                    struct=topLevelStruct(self.prefix),
+                    params=paramstring)
+                    
+    def resetPrototype(self):
+        return self.createFunctionPrototype('Reset')
                     
     #create a function to reset the logging structure
     def createResetFunction(self):
@@ -290,7 +311,7 @@ class LogHeaderFile:
         #add the reset function to the c file
         self.cFile.appendCommentLine('Reset the log data struct (e.g. after writing to memory)')
         self.cFile.appendCommentLine('Only the selection bits need to be reset')
-        self.cFile.appendLine(self.createFunctionPrototype('reset'))
+        self.cFile.appendLine(self.resetPrototype())
         self.cFile.openBrace()
         
         self.cFile.appendLine("memset(&(log->selection),0,sizeof(" + bitfieldStruct(self.prefix) + "));")
@@ -298,13 +319,60 @@ class LogHeaderFile:
         self.cFile.closeBrace()
         self.cFile.appendLine()
         
+    def initPrototype(self):
+        return self.createFunctionPrototype('Initialize')
+        
     #create a func to initialize the logging structure
     def createInitFunction(self):
     
         self.cFile.appendCommentLine("Initialize the log data struct to zero")
-        self.cFile.appendLine(self.createFunctionPrototype('initialize'))
+        self.cFile.appendLine(self.initPrototype())
         self.cFile.openBrace()
         self.cFile.appendLine('memset(&log,0,sizeof({struct}));'.format(struct=topLevelStruct(self.prefix)))
+        self.cFile.closeBrace()
+        self.cFile.appendLine()
+        
+    def copyAllPrototype(self):
+        return self.createFunctionPrototype('CopyAll',params={'dest' : 'void*'})
+        
+    #create a function to copy ALL parameters across, conserving data format
+    def createCopyAllFunction(self):
+        
+        self.cFile.appendCommentLine("Copy ALL data in the log struct to the provided address")
+        self.cFile.appendCommentLine("Data will be copied even if the associated selection bit is cleared")
+        
+        self.cFile.appendLine(self.copyAllPrototype())
+        self.cFile.openBrace()
+        self.cFile.appendLine('memcpy(dest, &(log->data), sizeof({struct}));'.format(struct=dataStruct(self.prefix)))
+        self.cFile.closeBrace()
+        self.cFile.appendLine()
+        
+    def copySomePrototype(self):
+        return self.createFunctionPrototype('CopySome',params={'dest' : 'void*'}, returnType='uint16_t')
+        
+    #create a function that copies across ONLY the bits that are set
+    def createCopySomeFunction(self):
+        self.cFile.appendCommentLine("Copy across data whose selection bit is set")
+        self.cFile.appendCommentLine("Only data selected will be copied (in sequence)")
+        self.cFile.appendCommentLine("Ensure a copy of the selection bits is stored for decoding")
+        self.cFile.appendLine(self.copySomePrototype());
+        self.cFile.openBrace()
+        self.cFile.appendLine('void* ptr = dest;')
+        self.cFile.appendLine('uint16_t count = 0; //Variable for keeping track of how many bytes were copied')
+        self.cFile.appendLine()
+        self.cFile.appendCommentLine('Check each variable in the logging struct to see if it should be added')
+        
+        for var in self.variables:
+            self.cFile.appendLine(var.checkBit())
+            self.cFile.openBrace()
+            #copy the data across
+            self.cFile.appendLine('memcpy(ptr, {ptr}, {size}); //Copy the data'.format(ptr=var.getPtr(), size=var.getSize()))
+            self.cFile.appendLine('ptr += {size}; //Increment the pointer'.format(size=var.getSize()))
+            self.cFile.appendLine('count += {size}; //Increase the count'.format(size=var.getSize()))
+            self.cFile.closeBrace()
+        
+        self.cFile.appendLine()
+        self.cFile.appendLine('return count; //Return the number of bytes that were actually copied')
         self.cFile.closeBrace()
         self.cFile.appendLine()
 
@@ -376,14 +444,16 @@ class LogVariable:
     def clearBit(self):
         return 'log->selection.{name} = 0; //Clear the {name} bit'.format(name=self.name)
         
+    def getSize(self):
+        return 'sizeof(log->data.{name})'.format(name=self.name)
+        
+    def getPtr(self):
+        return '&(log->data.{name})'.format(name=self.name)
+        
     #increment the 'size' counter by the size of this datatype
     def incrementSize(self):
         s  = 'log->size += sizeof(log->data.{name}); //Increment the size counter'.format(name=self.name)
         return s
-        
-    #set the 'size' field to zero
-    def clearSize(self):
-        return 'log->size = 0; //Clear the size counter'
         
     #add the variable to the struct
     def addVariable(self):
