@@ -61,7 +61,8 @@ def headerFilename(prefix):
     return "log_{prefix}_defs".format(prefix=prefix.lower())
     
 def externEntry():
-    s  = '#ifdef __cplusplus\n'
+    s  = '//Play nice with C++ compilers!\n'
+    s += '#ifdef __cplusplus\n'
     s += 'extern "C" {\n'
     s += '#endif\n'
     
@@ -71,6 +72,7 @@ def externExit():
     s  = '#ifdef __cplusplus\n'
     s += '}\n'
     s += '#endif\n'
+    s += '//We are done playing nice with C++ compilers\n'
     
     return s
     
@@ -119,6 +121,23 @@ class LogHeaderFile:
         #include the header file
         self.createHeaderInclude()
         
+        self.cFile.appendLine()
+        
+        #add in the global functions
+        self.cFile.startComment()
+        self.cFile.appendLine("Global functions")
+        self.cFile.finishComment()
+        
+        #init function
+        self.createInitFunction()
+        #reset function
+        self.createResetFunction()
+        
+        self.cFile.appendLine()
+        self.cFile.startComment()
+        self.cFile.appendLine("Individual variable functions")
+        self.cFile.finishComment()
+        
         #add in the functions to add variables
         for v in self.variables:
             self.cFile.appendLine()
@@ -166,10 +185,23 @@ class LogHeaderFile:
         
         self.hFile.appendLine()
         
+        self.hFile.startComment()
+        self.hFile.appendLine("Global Functions:")
+        self.hFile.appendLine("These functions are applied to the global struct " + topLevelStruct(self.prefix))
+        self.hFile.finishComment()
+        
+        self.hFile.appendCommentLine("Initialize the logging structure")
+        self.hFile.appendLine(self.createFunctionPrototype('initialize') + ";")
+        
         self.hFile.appendCommentLine("Reset the bitfield of the logging structure")
-        self.hFile.appendLine(self.createResetPrototype() + ";")
+        self.hFile.appendLine(self.createFunctionPrototype('reset') + ";")
         
         self.hFile.appendLine()
+        
+        self.hFile.startComment()
+        self.hFile.appendLine("Variable Functions:")
+        self.hFile.appendLine("These functions are applied to individual variables within the logging structure")
+        self.hFile.finishComment()
         
         self.hFile.appendCommentLine('Function prototypes for adding the variables to the data struct')
         
@@ -245,21 +277,36 @@ class LogHeaderFile:
         
         self.cFile.closeBrace()
         
-    def createResetPrototype(self):
-        return "void {prefix}Log_Reset(void)".format(prefix=self.prefix)
-        
+    def createFunctionPrototype(self, name, inline=False):
+        return '{inline}void {prefix}Log_{name}({struct} *log)'.format(
+                    inline='inline ' if inline else '',
+                    prefix=self.prefix.capitalize(),
+                    name=name.capitalize(),
+                    struct=topLevelStruct(self.prefix))
+                    
+    #create a function to reset the logging structure
     def createResetFunction(self):
         
         #add the reset function to the c file
         self.cFile.appendCommentLine('Reset the log data struct (e.g. after writing to memory)')
-        self.cFile.appendLine(self.createResetPrototype())
+        self.cFile.appendCommentLine('Only the selection bits need to be reset')
+        self.cFile.appendLine(self.createFunctionPrototype('reset'))
         self.cFile.openBrace()
         
-        self.cFile.appendLine("memset(log,0,sizeof(" + topLevelStruct(self.prefix) + ");")
+        self.cFile.appendLine("memset(&(log->selection),0,sizeof(" + bitfieldStruct(self.prefix) + "));")
         
         self.cFile.closeBrace()
         self.cFile.appendLine()
         
+    #create a func to initialize the logging structure
+    def createInitFunction(self):
+    
+        self.cFile.appendCommentLine("Initialize the log data struct to zero")
+        self.cFile.appendLine(self.createFunctionPrototype('initialize'))
+        self.cFile.openBrace()
+        self.cFile.appendLine('memset(&log,0,sizeof({struct}));'.format(struct=topLevelStruct(self.prefix)))
+        self.cFile.closeBrace()
+        self.cFile.appendLine()
 
 class LogVariable:
 
