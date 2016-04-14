@@ -50,8 +50,8 @@ class CodeWriter:
         self.comment = True
         
     def finishComment(self):
-        self.appendLine("*/")
         self.comment = False
+        self.appendLine("*/")
         
     def writeToFile(self):
         with open(self.fname,'w') as file:

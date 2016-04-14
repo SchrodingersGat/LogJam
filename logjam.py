@@ -6,8 +6,11 @@ from code_writer import CodeWriter
 
 LOGJAM_VERSION = "0.1"
 
-def close(*arg):
+def say(*arg):
     print(" ".join(map(str,arg)))
+
+def close(*arg):
+    say(*arg)
     sys.exit(0)
     
 #get an xml file
@@ -19,6 +22,22 @@ xml_file = sys.argv[1]
 #import xml funcs
 from xml.etree import ElementTree
 
+outputdir = None
+
+#have we been directed to an output directory?
+if len(sys.argv) > 2:
+    outputdir = os.path.abspath(sys.argv[2])
+    if not os.path.isdir(outputdir):
+        say(outputdir,'is not a valid directory')
+        outputdir = None
+    
+else:
+    say('No output directory specified.')
+    
+if not outputdir:
+    say('Writing files to',os.getcwd())
+else:
+    say('Writing files to',outputdir)
 #top level funx
 
 #log entry struct of the format Device_LogEntry_t
@@ -82,12 +101,11 @@ class LogHeaderFile:
         self.cFile.appendLine('#include "{file}.h"'.format(file=headerFilename(self.prefix)))
         
     def createAutogenInfo(self):
-        self.hFile.append("/*")
-        self.hFile.tabIn()
-        self.hFile.appendLine("//This file was created using LogJam v{version}".format(version=LOGJAM_VERSION))
-        
-        self.hFile.tabOut()
-        self.hFile.appendLine("//")
+        self.hFile.startComment()
+        self.hFile.appendLine("Logging structure definitions for the {device}".format(device=self.prefix))
+        self.hFile.appendLine("This file was created using LogJam v{version}".format(version=LOGJAM_VERSION))
+        self.hFile.finishComment()
+        self.hFile.appendLine()
         
     def createVersionString(self):
         self.hFile.appendLine('#define {prefix}_GetLogVersion() {{return "{version}";}}\n'.format(
@@ -121,24 +139,25 @@ class LogHeaderFile:
         
         self.hFile.appendLine(externEntry())
         
+        self.createAutogenInfo()
         self.createVersionString()
         
-        self.hFile.appendLine("//Bitfield struct definition for the " + self.prefix + " logging struct")
+        self.hFile.appendCommentLine("Bitfield struct definition for the " + self.prefix + " logging struct")
         self.createBitfieldStruct()
         self.hFile.appendLine()
-        self.hFile.appendLine("//Data struct definition for the " + self.prefix + " logging struct")
+        self.hFile.appendCommentLine("Data struct definition for the " + self.prefix + " logging struct")
         self.createDataStruct()
         self.hFile.appendLine()
-        self.hFile.appendLine("//Structure for complete definition of the " + self.prefix + " logging protocol")
+        self.hFile.appendCommentLine("Structure for complete definition of the " + self.prefix + " logging protocol")
         self.hFile.appendLine('typedef struct')
         self.hFile.openBrace()
-        self.hFile.appendLine("//Cumulative size of the logging struct")
+        self.hFile.appendCommentLine("Cumulative size of the logging struct")
         self.hFile.appendLine("uint16_t size;")
         self.hFile.appendLine()
-        self.hFile.appendLine("//Bitfield defining which variables are selected")
+        self.hFile.appendCommentLine("Bitfield defining which variables are selected")
         self.hFile.appendLine(bitfieldStruct(self.prefix) + " selection;")
         self.hFile.appendLine()
-        self.hFile.appendLine("//Struct defining the actual data to be logged")
+        self.hFile.appendCommentLine("Struct defining the actual data to be logged")
         self.hFile.appendLine(dataStruct(self.prefix) + " data;")
         self.hFile.tabOut()
         self.hFile.appendLine()
@@ -147,12 +166,12 @@ class LogHeaderFile:
         
         self.hFile.appendLine()
         
-        self.hFile.appendLine("//Reset the bitfield of the logging structure")
+        self.hFile.appendCommentLine("Reset the bitfield of the logging structure")
         self.hFile.appendLine(self.createResetPrototype() + ";")
         
         self.hFile.appendLine()
         
-        self.hFile.appendLine('//Function prototypes for adding the variables to the data struct')
+        self.hFile.appendCommentLine('Function prototypes for adding the variables to the data struct')
         
         #add in the 'addition' functions
         for var in self.variables:
@@ -203,7 +222,7 @@ class LogHeaderFile:
     #create the function for adding a variable to the logging structure
     def createAdditionFunction(self, var):
     
-        self.cFile.appendLine('//Add variable {name} to the {prefix} logging struct'.format(
+        self.cFile.appendCommentLine('Add variable {name} to the {prefix} logging struct'.format(
                         name=var.name,
                         prefix=self.prefix))
                         
@@ -212,7 +231,7 @@ class LogHeaderFile:
         
         #check if the variable is already 'in' the log struct
         #if it isn't, set the bit and increment the size
-        self.cFile.appendLine("//Check if the '{data}' is already in the logging struct".format(
+        self.cFile.appendCommentLine("Check if the '{data}' is already in the logging struct".format(
                             data=var.name))
         self.cFile.appendLine(var.checkNotBit())
         self.cFile.openBrace()
@@ -232,7 +251,7 @@ class LogHeaderFile:
     def createResetFunction(self):
         
         #add the reset function to the c file
-        self.cFile.appendLine('//Reset the log data struct (e.g. after writing to memory)')
+        self.cFile.appendCommentLine('Reset the log data struct (e.g. after writing to memory)')
         self.cFile.appendLine(self.createResetPrototype())
         self.cFile.openBrace()
         
@@ -374,7 +393,7 @@ with open(xml_file, 'rt') as xml:
             
         variables.append(LogVariable(prefix,name,datatype,comment))
         
-    lf = LogHeaderFile(variables, prefix, version)
+    lf = LogHeaderFile(variables, prefix, version, outputdir=outputdir)
     
     lf.saveFiles()
 

@@ -1,8 +1,8 @@
 <?xml version="1.0"?>
 
-<Logging name="Servo" version="1.0">
+<Logging name="Test" version="1.0">
     <Data name="temperature" type="signed8" comment="Servo Temperature"/>
-    <Data name="position" type="unsigned16"/>
+    <Data name="voltage" type="unsigned16"/>
     <Data name="current" type="unsigned8" comment="Current in 0.5A increments"/>
-    <Data name="voltage" type="unsigned8"/>
+    <Data name="monkeys" type="unsigned8"/>
 </Logging>
