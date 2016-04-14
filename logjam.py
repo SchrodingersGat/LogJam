@@ -5,10 +5,6 @@ from code_writer import CodeWriter
 
 #LOGJAM version
 LOGJAM_VERSION = "0.1"
-
-#log entry struct of the format Device_LogEntry_t
-def topLevelStruct(prefix):
-    return "{prefix}_LogEntry_t".format(prefix=prefix)
     
 #bitfield struct of the format Device_LogBitfield_t"
 def bitfieldStruct(prefix):
@@ -65,7 +61,7 @@ class LogFile:
     
         major, minor = self.version.split('.')
         self.hFile.define("{prefix}_GetLogVersion()".format(prefix=self.prefix),
-                          '"{version}";'.format(version=self.version),
+                          '"{version}"'.format(version=self.version),
                           comment="{prefix} Log revision number string".format(prefix=self.prefix))
         self.hFile.define("{prefix}_LOG_VERSION_MAJOR".format(prefix=self.prefix.upper()),
                           "{version}".format(version=major),
@@ -97,11 +93,9 @@ class LogFile:
         self.cFile.appendLine("Global functions")
         self.cFile.finishComment()
         
-        self.createInitFunction()
         self.createResetFunction()
         self.createCopyAllFunction()
         self.createCopySelectedFunction()
-        self.createCopyDataFunction()
         self.createCopyAllFromFunction()
         
         self.cFile.appendLine()
@@ -144,30 +138,12 @@ class LogFile:
         self.hFile.appendLine()
         self.hFile.appendComment("Data struct definition for the " + self.prefix + " logging struct")
         self.createDataStruct()
-        self.hFile.appendLine()
-        self.hFile.appendComment("Structure for complete definition of the " + self.prefix + " logging protocol")
-        self.hFile.appendLine('typedef struct')
-        self.hFile.openBrace()
-        self.hFile.appendLine()
-        self.hFile.appendComment("Bitfield defining which variables are selected")
-        self.hFile.appendLine(bitfieldStruct(self.prefix) + " selection;")
-        self.hFile.appendLine()
-        self.hFile.appendComment("Struct defining the actual data to be logged")
-        self.hFile.appendLine(dataStruct(self.prefix) + " data;")
-        self.hFile.tabOut()
-        self.hFile.appendLine()
-        
-        self.hFile.appendLine("} " + topLevelStruct(self.prefix) + ";")
         
         self.hFile.appendLine()
         
         self.hFile.startComment()
         self.hFile.appendLine("Global Functions:")
-        self.hFile.appendLine("These functions are applied to the global struct " + topLevelStruct(self.prefix))
         self.hFile.finishComment()
-        
-        self.hFile.appendComment("Initialize the logging structure")
-        self.hFile.appendLine(self.initPrototype() + ";")
         
         self.hFile.appendComment("Reset the bitfield of the logging structure")
         self.hFile.appendLine(self.resetPrototype() + ";")
@@ -177,9 +153,6 @@ class LogFile:
         
         self.hFile.appendComment("Copy *selected* data from the logging structure")
         self.hFile.appendLine(self.copySelectedPrototype() + ";")
-        
-        self.hFile.appendComment("Copy data that has been written")
-        self.hFile.appendLine(self.copyDataPrototype() + ';')
         
         self.hFile.appendComment('Copy all data back out from a buffer')
         self.hFile.appendLine(self.copyAllFromPrototype() + ';')
@@ -191,12 +164,10 @@ class LogFile:
         self.hFile.appendLine("These functions are applied to individual variables within the logging structure")
         self.hFile.finishComment()
         
-        
         #add in the 'addition' functions
         for var in self.variables:
-            self.hFile.appendLine(var.getFunctionPrototype('add',inline=True) + "; //Add " + var.prefix + " to the log struct")
+            self.hFile.appendLine(self.additionPrototype(var) + "; //Add " + var.prefix + " to the log struct")
             self.hFile.appendLine(self.removePrototype(var) + ';')
-        
         
         self.hFile.appendLine()
         self.hFile.externExit()
@@ -267,20 +238,20 @@ class LogFile:
         
         self.hFile.appendLine('} ' + bitfieldStruct(self.prefix) + ';')
         
-    def removePrototype(self, var):
-        return 'inline void {prefix}Log_Remove{name}({struct} *log)'.format(
-                prefix=self.prefix,
-                name=var.name.capitalize(),
-                struct=topLevelStruct(self.prefix))
+    def removePrototype(self,var):
+        return self.createVariableFunction(var,'remove',inline=True,data=False)
         
     #create a function to remove a var from the logging structure
     def createRemoveFunction(self, var):
         self.cFile.appendComment("Remove variable {name} from the {prefix} loggin structure".format(name=var.name,prefix=self.prefix))
         self.cFile.appendLine(self.removePrototype(var))
         self.cFile.openBrace()
-        self.cFile.appendLine(var.clearBit())
+        self.cFile.appendLine(var.clearBit('selection'))
         self.cFile.closeBrace()
         self.cFile.appendLine()
+        
+    def additionPrototype(self,var):
+        return self.createVariableFunction(var,'add',inline=True)
         
     #create the function for adding a variable to the logging structure
     def createAdditionFunction(self, var):
@@ -289,15 +260,20 @@ class LogFile:
                         name=var.name,
                         prefix=self.prefix))
                         
-        self.cFile.appendLine(var.getFunctionPrototype('add',inline=True))
+        self.cFile.appendLine(self.additionPrototype(var))
         self.cFile.openBrace()
-        self.cFile.appendLine(var.setBit())
+        self.cFile.appendLine(var.setBit('selection'))
         #now actually add the variable in
-        self.cFile.appendLine(var.addVariable())
+        self.cFile.appendLine(var.addVariable('data'))
         self.cFile.closeBrace()
         self.cFile.appendLine()
         
-    def createFunctionPrototype(self, name, inline=False, returnType='void', params={}):
+    def createVariableFunction(self, var, name, **params):
+        name = var.getFunctionName(name)
+        
+        return self.createFunctionPrototype(name,params={'*'+var.name : var.format},**params)
+        
+    def createFunctionPrototype(self, name, data=True, bits=True, inline=False, returnType='void', params={}):
         
         #pass extra parameters to the function as such
         #params = {'*dest': 'void'} (name, type)
@@ -308,16 +284,18 @@ class LogFile:
             paramstring += ' '
             paramstring += k
             
-        return '{inline}{returnType} {prefix}Log_{name}({struct} *log{params})'.format(
+        return '{inline}{returnType} {prefix}Log_{name}({data}{comma}{bits}{params})'.format(
                     inline='inline ' if inline else '',
                     returnType=returnType,
                     prefix=self.prefix.capitalize(),
                     name=name,
-                    struct=topLevelStruct(self.prefix),
+                    comma=', ' if data and bits else '',
+                    data=dataStruct(self.prefix) + " *data" if data else "",
+                    bits=bitfieldStruct(self.prefix) + " *selection" if bits else "",
                     params=paramstring)
                     
     def resetPrototype(self):
-        return self.createFunctionPrototype('Reset')
+        return self.createFunctionPrototype('Reset',data=False)
                     
     #create a function to reset the logging structure
     def createResetFunction(self):
@@ -328,21 +306,8 @@ class LogFile:
         self.cFile.appendLine(self.resetPrototype())
         self.cFile.openBrace()
         
-        self.cFile.appendLine("memset(&(log->selection),0,sizeof(" + bitfieldStruct(self.prefix) + "));")
+        self.cFile.appendLine("memset(selection,0,sizeof(" + bitfieldStruct(self.prefix) + "));")
         
-        self.cFile.closeBrace()
-        self.cFile.appendLine()
-        
-    def initPrototype(self):
-        return self.createFunctionPrototype('Initialize')
-        
-    #create a func to initialize the logging structure
-    def createInitFunction(self):
-    
-        self.cFile.appendComment("Initialize the log data struct to zero")
-        self.cFile.appendLine(self.initPrototype())
-        self.cFile.openBrace()
-        self.cFile.appendLine('memset(log,0,sizeof({struct}));'.format(struct=topLevelStruct(self.prefix)))
         self.cFile.closeBrace()
         self.cFile.appendLine()
         
@@ -350,7 +315,7 @@ class LogFile:
     Functions for copying data out of a struct and into a linear buffer
     """
     def copyAllPrototype(self):
-        return self.createFunctionPrototype('CopyAllToBuffer',params={'*dest' : 'void'})
+        return self.createFunctionPrototype('CopyAllToBuffer',bits=False,params={'*dest' : 'void'})
         
     #create a function to copy ALL parameters across, conserving data format
     def createCopyAllFunction(self):
@@ -360,12 +325,12 @@ class LogFile:
         
         self.cFile.appendLine(self.copyAllPrototype())
         self.cFile.openBrace()
-        self.cFile.appendLine('memcpy(dest, &(log->data), sizeof({struct}));'.format(struct=dataStruct(self.prefix)))
+        self.cFile.appendLine('memcpy(dest, data, sizeof({struct}));'.format(struct=dataStruct(self.prefix)))
         self.cFile.closeBrace()
         self.cFile.appendLine()
 
     def copySelectedPrototype(self):
-        return self.createFunctionPrototype('CopySelectedToBuffer',params={'*selection' : bitfieldStruct(self.prefix), '*dest' : 'void'}, returnType='uint16_t')
+        return self.createFunctionPrototype('CopyDataToBuffer',params={'*dest' : 'void'}, returnType='uint16_t')
         
     #create a function that copies across ONLY the bits that are set
     def createCopySelectedFunction(self):
@@ -384,33 +349,16 @@ class LogFile:
         self.cFile.appendComment('Check each variable in the logging struct to see if it should be added')
         
         for var in self.variables:
-            self.cFile.appendLine(var.checkExternalBit('selection'))
+            self.cFile.appendLine(var.checkBit('selection'))
             self.cFile.openBrace()
             #copy the data across
-            self.cFile.appendLine('memcpy(ptr, {ptr}, {size}); //Copy the data'.format(ptr=var.getPtr(), size=var.getSize()))
-            self.cFile.appendLine('ptr += {size}; //Increment the pointer'.format(size=var.getSize()))
-            self.cFile.appendLine('count += {size}; //Increase the count'.format(size=var.getSize()))
+            self.cFile.appendLine('memcpy(ptr, &({ptr}), {size}); //Copy the data'.format(ptr=var.getPtr('data'), size=var.getSize('data')))
+            self.cFile.appendLine('ptr += {size}; //Increment the pointer'.format(size=var.getSize('data')))
+            self.cFile.appendLine('count += {size}; //Increase the count'.format(size=var.getSize('data')))
             self.cFile.closeBrace()
         
         self.cFile.appendLine()
         self.cFile.appendLine('return count; //Return the number of bytes that were actually copied')
-        self.cFile.closeBrace()
-        self.cFile.appendLine()        
-        
-    def copyDataPrototype(self):
-        return self.createFunctionPrototype('CopyDataToBuffer',params={'*dest' : 'void'}, returnType='uint16_t')
-        
-    #create a function that copies across ONLY the bits that are set
-    def createCopyDataFunction(self):
-        self.cFile.appendComment("Copy across data whose selection bit is set within " + topLevelStruct(self.prefix))
-        self.cFile.appendComment("Only data selected will be copied (in sequence)")
-        self.cFile.appendComment("Ensure a copy of the selection bits is stored for decoding")
-        self.cFile.appendLine(self.copyDataPrototype());
-        self.cFile.openBrace()
-        
-        #we have already defined the CopySelected function, which can be chained here
-        self.cFile.appendLine('return {prefix}Log_CopySelected(log,dest,&(log->selection));'.format(prefix=self.prefix.capitalize()))
-        
         self.cFile.closeBrace()
         self.cFile.appendLine()
         
@@ -420,6 +368,7 @@ class LogFile:
     def copyAllFromPrototype(self):
         return self.createFunctionPrototype(
                             'CopyAllFromBuffer',
+                            bits = False,
                             params = {'*src' : 'void'})
                             
     def createCopyAllFromFunction(self):
@@ -427,7 +376,7 @@ class LogFile:
         self.cFile.appendComment("Data will be copied even if it is invalid (selection bit is cleared)")
         self.cFile.appendLine(self.copyAllFromPrototype())
         self.cFile.openBrace()
-        self.cFile.appendLine("memcpy(&(log->data),src,sizeof({struct});".format(struct=dataStruct(self.prefix)))
+        self.cFile.appendLine("memcpy(data,src,sizeof({struct}));".format(struct=dataStruct(self.prefix)))
         self.cFile.closeBrace()
         self.cFile.appendLine()
 
@@ -468,20 +417,7 @@ class LogVariable:
                 
     #wrap a given function name
     def getFunctionName(self, fnName):
-        return "{prefix}Log_{fn}{name}".format(prefix=self.prefix.capitalize(),name=self.name.capitalize(), fn=fnName.capitalize())
-        
-    #get a prototype for a function of a given name
-    def getFunctionPrototype(self, fname, inline=False):
-        s = 'inline ' if inline else ''
-        s += 'void '
-        s += self.getFunctionName(fname)
-        s += '('
-        s += topLevelStruct(self.prefix)
-        s += ' *log, '
-        s += self.format
-        s += ' ' + self.name.lower() + ')'
-        
-        return s
+        return "{fn}{name}".format(name=self.name.capitalize(), fn=fnName.capitalize())
         
     #return an enum line
     def getEnum(self):
@@ -489,36 +425,30 @@ class LogVariable:
         
     #assume there is always a pointer to *log
     
+    #get the pointer to the data type within a given struct
+    def getPtr(self, struct):
+        return '{struct}->{name}'.format(struct=struct,name=self.name)
+    
     #check if a bit is set
-    def checkBit(self):
-        return 'if ({bit})'.format(bit=self.getBit())
-
-    #check if a bit is set (in an external bitfield)
-    def checkExternalBit(self, field):
-        return 'if ({field}->{name})'.format(field=field,name=self.name)
+    #returns a string of the format 'if (bits->name)'
+    def checkBit(self,struct='bits'):
+        return 'if ({bit})'.format(bit=self.getPtr(struct))
         
     #check if a bit is not set
-    def checkNotBit(self):
-        return 'if ({bit} == 0)'.format(bit=self.getBit())
+    def checkNotBit(self,struct='bits'):
+        return 'if ({bit} == 0)'.format(bit=self.getPtr(struct))
         
-    #return access to the selection bit
-    def getBit(self):
-        return 'log->selection.{name}'.format(name=self.name)
-    
     #code prototype to set the selection bit
-    def setBit(self):
-        return '{bit} = 1; //Set the {name} bit'.format(bit=self.getBit(), name=self.name)
+    def setBit(self,struct='bits'):
+        return '{bit} = 1; //Set the {name} bit'.format(bit=self.getPtr(struct), name=self.name)
         
     #code prototype to clear the selection bit
-    def clearBit(self):
-        return '{bit} = 0; //Clear the {name} bit'.format(bit=self.getBit(), name=self.name)
+    def clearBit(self,struct='bits'):
+        return '{bit} = 0; //Clear the {name} bit'.format(bit=self.getPtr(struct), name=self.name)
         
-    def getSize(self):
-        return 'sizeof(log->data.{name})'.format(name=self.name)
-        
-    def getPtr(self):
-        return '&(log->data.{name})'.format(name=self.name)
+    def getSize(self, struct):
+        return 'sizeof({struct}->{name})'.format(struct=struct,name=self.name)
         
     #add the variable to the struct
-    def addVariable(self):
-        return "log->data.{name} = {name}; //Add the '{name}' variable".format(name=self.name)
+    def addVariable(self, struct):
+        return "{struct}->{name} = {name}; //Add the '{name}' variable".format(struct=struct,name=self.name)
