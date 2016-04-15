@@ -35,6 +35,9 @@ def rightShift(n):
         return '& 0xFF'
     else:
         return '>> {n}'.format(n=int(n*8))
+        
+def bitfieldSize(nBits):
+    return ceil(nBits / 8)
     
     
 class LogFile:
@@ -442,11 +445,13 @@ class LogFile:
         self.cFile.appendLine(self.copySelectedPrototype());
         self.cFile.openBrace()
         self.cFile.appendLine('uint8_t *ptr = (uint8_t*) dest; //Pointer for keeping track of data addressing')
+        self.cFile.appendLine('uint8_t *bf = (uint8_t*) selection; //Pointer for keeping track of the bitfield')
         self.cFile.appendLine('uint16_t count = 0; //Variable for keeping track of how many bytes were copied')
         self.cFile.appendLine()
         self.cFile.appendComment('Copy the selection for keeping track of data')
-        self.cFile.appendLine('memcpy(ptr, selection, sizeof({struct}));'.format(struct=bitfieldStruct(self.prefix)))
-        self.cFile.appendLine('ptr += sizeof({struct});'.format(struct=bitfieldStruct(self.prefix)))
+        
+        self.copyBitfieldToBuffer(count=True)
+        
         self.cFile.appendLine()
         self.cFile.appendComment('Check each variable in the logging struct to see if it should be added')
         
@@ -462,9 +467,29 @@ class LogFile:
         self.cFile.closeBrace()
         self.cFile.appendLine()
         
+    def copyBitfieldToBuffer(self, count=False):
+        #bitfield is called 'selection' locally
+        #size of the bitfield
+        bf_size = bitfieldSize(len(self.variables))
+        
+        for i in range(bf_size):
+            self.cFile.appendLine('*(ptr++) = bf[{i}];'.format(i = i))
+                
+        if count:
+            self.cFile.appendLine('count += {size};'.format(size=bf_size))
+            
+    def copyBitfieldFromBuffer(self, count=False):
+        bf_size = bitfieldSize(len(self.variables))
+        
+        for i in range(bf_size):
+            self.cFile.appendLine('bf[{i}] = *(ptr++);'.format(i=i))
+            
+        if count:
+            self.cFile.appendLine('count += {size};'.format(size=bf_size))
+        
     def copyVarToBuffer(self, var, count=False):
         for i in range(var.bytes):
-            self.cFile.appendLine('*(ptr++) = (uint8_t) ({data} {shift});'.format(
+            self.cFile.appendLine('*(ptr++) = ({data} {shift});'.format(
                 data = var.getPtr('data'),
                 shift = rightShift(i)))
 #            self.cFile.appendLine('ptr++;')
@@ -473,7 +498,7 @@ class LogFile:
             
     def copyVarFromBuffer(self, var, count=False):
         for i in range(var.bytes):
-            self.cFile.appendLine('{data} {pipe}= (uint8_t) *(ptr++) {shift};'.format(
+            self.cFile.appendLine('{data} {pipe}= (({format}) *(ptr++)) {shift};'.format(
                 data = var.getPtr('data'),
                 pipe = '|' if i > 0 else ' ',
                 format = var.format,
@@ -519,11 +544,13 @@ class LogFile:
         self.cFile.openBrace()
         
         self.cFile.appendLine('uint8_t *ptr = (uint8_t*) src; //Pointer for keeping track of data addressing')
+        self.cFile.appendLine('uint8_t *bf = (uint8_t*) selection; //Pointer for keeping track of the bitfield')
         self.cFile.appendLine('uint16_t count = 0; //Variable for keeping track of how many bytes were copied')
         self.cFile.appendLine()
         self.cFile.appendComment('Copy the selection bits')
-        self.cFile.appendLine('memcpy(selection, ptr, sizeof({struct}));'.format(struct=bitfieldStruct(self.prefix)))
-        self.cFile.appendLine('ptr += sizeof({struct});'.format(struct=bitfieldStruct(self.prefix)))
+        
+        self.copyBitfieldFromBuffer(count=True)
+        
         self.cFile.appendLine()
         self.cFile.appendComment('Only copy across variables that have actually been stored in the buffer')
         
