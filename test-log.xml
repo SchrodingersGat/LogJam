@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 
 <Logging name="Test" version="1.0">
-    <Data name="temperature" type="signed8" comment="Servo Temperature"/>
+    <Data name="temperature" type="signed8" units="C" comment="Servo Temperature"/>
     <Data name="voltage" type="unsigned16"/>
     <Data name="current" type="unsigned8" scaler="2" units="Amps" comment="Current in 0.5A increments"/>
     <Data name="monkeys" type="unsigned8"/>

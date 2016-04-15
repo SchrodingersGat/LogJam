@@ -94,9 +94,10 @@ class LogFile:
         self.cFile.finishComment()
         
         self.createResetFunction()
-        self.createCopyAllFunction()
-        self.createCopySelectedFunction()
+        self.createCopyAllToFunction()
+        self.createCopyDataToFunction()
         self.createCopyAllFromFunction()
+        self.createCopyDataFromFunction()
         
         self.cFile.appendLine()
         self.cFile.startComment()
@@ -109,6 +110,7 @@ class LogFile:
         for v in self.variables:
             self.createAdditionFunction(v)
             self.createRemoveFunction(v)
+            self.createDecodeFunction(v)
        
     def constructHeaderFile(self):
         
@@ -122,6 +124,7 @@ class LogFile:
         
         self.hFile.include('<stdint.h>', comment='Primitive definitions')
         self.hFile.include('<string.h>', comment='memcpy function')
+        self.hFile.include('<stdio.h>', comment='sprintf function')
         
         self.hFile.appendLine()
         
@@ -157,6 +160,9 @@ class LogFile:
         self.hFile.appendComment('Copy all data back out from a buffer')
         self.hFile.appendLine(self.copyAllFromPrototype() + ';')
         
+        self.hFile.appendComment('Copy *selected* data back out from a buffer')
+        self.hFile.appendLine(self.copyDataFromPrototype() + ';')
+        
         self.hFile.appendLine()
         
         self.hFile.startComment()
@@ -170,6 +176,23 @@ class LogFile:
             self.hFile.appendLine(self.removePrototype(var) + '; //Remove ' + var.prefix + ' from the log struct')
             self.hFile.appendLine(self.decodePrototype(var) + '; //Decode ' + var.prefix + ' into a printable string')
             
+        self.hFile.appendLine()
+        self.hFile.appendComment('Title and Unit string functions for all variables')
+        #defines for extracting title and unit information
+        for var in self.variables:
+            self.hFile.define('{prefix}Log_{name}Title() {title}'.format(
+                prefix=self.prefix,
+                name=var.name,
+                title=var.getTitleString()),
+                comment='Title string for {var} variable'.format(var=var.name))
+                
+            self.hFile.define('{prefix}Log_{name}Units() {units}'.format(
+                prefix=self.prefix,
+                name=var.name,
+                units=var.getUnitsString()),
+                comment='Units string for {var} variable'.format(var=var.name))
+                
+            self.hFile.appendLine()
         
         self.hFile.appendLine()
         self.hFile.externExit()
@@ -216,7 +239,7 @@ class LogFile:
         self.hFile.tabIn()
         
         for v in self.variables:
-            self.hFile.appendComment('Variable : {name}, {units}'.format(name=v.name,units=v.units))
+            self.hFile.appendComment('Variable : {name}, {units}'.format(name=v.name,units=v.units if v.units else 'no units specified'))
             
             if v.scaler > 1:
                 self.hFile.appendComment('{name} will be scaled by {scaler} when decoded to a log file'.format(name=v.name,scaler=v.scaler))
@@ -272,15 +295,23 @@ class LogFile:
         
     #function for decoding a particular variable into a printable string for writing to a log file
     def decodePrototype(self, var):
-        return self.createVariableFunction(var,'decode',blank=True,bits=False,returnType='void',extra={'*str' : 'const char'})
+        return self.createVariableFunction(var,'decode',blank=True,bits=False,returnType='void',extra={'*str' : 'char'})
     
     def createDecodeFunction(self, var):
-        self.cFile.appendComment('Decode the {name} variable and return a printable string (e.g. for saving to a log file)')
+        self.cFile.appendComment('Decode the {name} variable and return a printable string (e.g. for saving to a log file'.format(name=var.name))
+        self.cFile.appendComment('Pointer to *str must have enough space allocated!')
         self.cFile.appendLine(self.decodePrototype(var))
         self.cFile.openBrace()
         line = ''
-        if var.scaler and var.scaler > 0:
-            pass
+        #perform scaling!
+        scale = var.scaler and var.scaler > 0
+        
+        if scale:
+            pattern = '"%{sign}",{var}'.format(sign='u' if var.format.startswith('u') else 'd',var=var.getPtr('data'))
+        else:
+            pattern = '"%f",(float) {var} / {scaler}'.format(var=var.getPtr('data',scaler=var.scaler))
+            
+        self.cFile.appendLine('sprintf(str,{patt});'.format(patt=pattern))
         self.cFile.closeBrace()
         self.cFile.appendLine()
         pass
@@ -354,7 +385,7 @@ class LogFile:
         return self.createFunctionPrototype('CopyAllToBuffer',bits=False,extra={'*dest' : 'void'})
         
     #create a function to copy ALL parameters across, conserving data format
-    def createCopyAllFunction(self):
+    def createCopyAllToFunction(self):
         
         self.cFile.appendComment("Copy ALL data in the log struct to the provided address")
         self.cFile.appendComment("Data will be copied even if the associated selection bit is cleared")
@@ -369,13 +400,13 @@ class LogFile:
         return self.createFunctionPrototype('CopyDataToBuffer',extra={'*dest' : 'void'}, returnType='uint16_t')
         
     #create a function that copies across ONLY the bits that are set
-    def createCopySelectedFunction(self):
+    def createCopyDataToFunction(self):
         self.cFile.appendComment("Copy across data whose selection bit is set in the provided bitfield")
         self.cFile.appendComment("Only data selected will be copied (in sequence)")
         self.cFile.appendComment("Ensure a copy of the selection bits is stored for decoding")
         self.cFile.appendLine(self.copySelectedPrototype());
         self.cFile.openBrace()
-        self.cFile.appendLine('void* ptr = dest; //Pointer for keeping track of data addressing')
+        self.cFile.appendLine('void *ptr = dest; //Pointer for keeping track of data addressing')
         self.cFile.appendLine('uint16_t count = 0; //Variable for keeping track of how many bytes were copied')
         self.cFile.appendLine()
         self.cFile.appendComment('Copy the selection for keeping track of data')
@@ -415,6 +446,40 @@ class LogFile:
         self.cFile.appendLine("memcpy(data,src,sizeof({struct}));".format(struct=dataStruct(self.prefix)))
         self.cFile.closeBrace()
         self.cFile.appendLine()
+        
+    def copyDataFromPrototype(self):
+        return self.createFunctionPrototype('CopyDataFromBuffer',
+                                            returnType='uint16_t',
+                                            extra = {'*src' : 'void'})
+                                            
+    def createCopyDataFromFunction(self):
+        self.cFile.appendComment("Copy across *selected* data from a buffer")
+        self.cFile.appendLine(self.copyDataFromPrototype())
+        self.cFile.openBrace()
+        
+        self.cFile.appendLine('void *ptr = src; //Pointer for keeping track of data addressing')
+        self.cFile.appendLine('uint16_t count = 0; //Variable for keeping track of how many bytes were copied')
+        self.cFile.appendLine()
+        self.cFile.appendComment('Copy the selection bits')
+        self.cFile.appendLine('memcpy(selection, ptr, sizeof({struct}));'.format(struct=bitfieldStruct(self.prefix)))
+        self.cFile.appendLine('ptr += sizeof({struct});'.format(struct=bitfieldStruct(self.prefix)))
+        self.cFile.appendLine()
+        self.cFile.appendComment('Only copy across variables that have actually been stored in the buffer')
+        
+        for var in self.variables:
+            self.cFile.appendLine(var.checkBit('selection'))
+            self.cFile.openBrace()
+            #copy the data across
+            self.cFile.appendLine('memcpy(&({ptr}), ptr, {size}); //Copy the data'.format(ptr=var.getPtr('data'), size=var.getSize('data')))
+            self.cFile.appendLine('ptr += {size}; //Increment the pointer'.format(size=var.getSize('data')))
+            self.cFile.appendLine('count += {size}; //Increase the count'.format(size=var.getSize('data')))
+            self.cFile.closeBrace()
+            
+        self.cFile.appendLine()
+        self.cFile.appendLine('return count; //Return the number of bytes that were actually copied')
+        
+        self.cFile.closeBrace()
+        self.cFile.appendLine()
 
 class LogVariable:
 
@@ -422,7 +487,7 @@ class LogVariable:
     #name = name of this variable
     #format = primitive datatype
     #comment = comment string
-    def __init__(self, prefix, name, format, comment=None, units='dimensionless', scaler=1.0):
+    def __init__(self, prefix, name, format, comment=None, units=None, scaler=1.0):
         self.prefix = prefix
         self.name = name
         self.format = self.parseFormat(format)
@@ -454,17 +519,6 @@ class LogVariable:
     #wrap a given function name
     def getFunctionName(self, fnName):
         return "{fn}{name}".format(name=self.name.capitalize(), fn=fnName.capitalize())
-        
-    #return a string for decoding this value e.g. into a log file
-    def getDecodeString(self, struct='data'):
-        decode = '{float}{struct}->{name}{scaler}'.format(
-            float = '(float) ' if self.scaler and self.scaler > 1 else '',
-            struct = struct,
-            name=self.name,
-            scaler = ' / {scaler}'.format(scaler=self.scaler) if self.scaler and self.scaler > 1 else ''
-        )
-        
-        return decode
         
     #return an enum line
     def getEnum(self):
@@ -499,3 +553,12 @@ class LogVariable:
     #add the variable to the struct
     def addVariable(self, struct):
         return "{struct}->{name} = {name}; //Add the '{name}' variable".format(struct=struct,name=self.name)
+        
+    def getTitleString(self):
+        return '"{name}"'.format(name=self.name)
+        
+    def getUnitsString(self):
+        if not self.units:
+            return '""'
+        else:
+            return '"{units}"'.format(units=self.units)

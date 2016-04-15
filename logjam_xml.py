@@ -79,7 +79,7 @@ with open(xml_file, 'rt') as xml:
         name = a.get('name',None)
         datatype = a.get('type',None)
         comment = a.get('comment',None)
-        units = a.get('units','dimensionless')
+        units = a.get('units',None)
         scaler = float(a.get('scaler',1))
         
         if not name:
