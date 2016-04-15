@@ -166,8 +166,10 @@ class LogFile:
         
         #add in the 'addition' functions
         for var in self.variables:
-            self.hFile.appendLine(self.additionPrototype(var) + "; //Add " + var.prefix + " to the log struct")
-            self.hFile.appendLine(self.removePrototype(var) + ';')
+            self.hFile.appendLine(self.additionPrototype(var) + '; //Add ' + var.prefix + " to the log struct")
+            self.hFile.appendLine(self.removePrototype(var) + '; //Remove ' + var.prefix + ' from the log struct')
+            self.hFile.appendLine(self.decodePrototype(var) + '; //Decode ' + var.prefix + ' into a printable string')
+            
         
         self.hFile.appendLine()
         self.hFile.externExit()
@@ -268,17 +270,46 @@ class LogFile:
         self.cFile.closeBrace()
         self.cFile.appendLine()
         
-    def createVariableFunction(self, var, name, blank=False, ptr=False, **params):
+    #function for decoding a particular variable into a printable string for writing to a log file
+    def decodePrototype(self, var):
+        return self.createVariableFunction(var,'decode',blank=True,bits=False,returnType='void',extra={'*str' : 'const char'})
+    
+    def createDecodeFunction(self, var):
+        self.cFile.appendComment('Decode the {name} variable and return a printable string (e.g. for saving to a log file)')
+        self.cFile.appendLine(self.decodePrototype(var))
+        self.cFile.openBrace()
+        line = ''
+        if var.scaler and var.scaler > 0:
+            pass
+        self.cFile.closeBrace()
+        self.cFile.appendLine()
+        pass
+        
+    #create a function pointing to a particular variable
+    def createVariableFunction(self, var, name, blank=False, extra=None,ptr=False, **params):
         name = var.getFunctionName(name)
         
-        if blank:
-            paramstring ={}
-        else:
-            paramstring = {'{ptr}'.format(ptr='*' if ptr else '')+var.name : var.format}
+        if not extra:
+            extra = {}
         
-        return self.createFunctionPrototype(name,extra=paramstring,**params)
+        if not blank:
+            extra['{ptr}{name}'.format(ptr='*' if ptr else '',name=var.name)] = var.format
         
-    def createFunctionPrototype(self, name, data=True, bits=True, inline=False, returnType='void', extra={}):
+        return self.createFunctionPrototype(name,extra=extra,**params)
+        
+    """
+    Create a function type of given NAME
+    name - name of the function
+    data - Include a pointer to the LogData_t struct?
+    bits - Include a pointer to the LogBitfield_t struct?
+    inline - Make the function inline?
+    returnType - Function return type
+    extra - Extra parameters to pass to the function python dict
+    """
+    def createFunctionPrototype(self, name, data=True, bits=True, inline=False, returnType='void', extra=None):
+        
+        if not extra:
+            extra = {}
         
         #pass extra parameters to the function as such
         #params = {'*dest': 'void'} (name, type)
@@ -423,6 +454,17 @@ class LogVariable:
     #wrap a given function name
     def getFunctionName(self, fnName):
         return "{fn}{name}".format(name=self.name.capitalize(), fn=fnName.capitalize())
+        
+    #return a string for decoding this value e.g. into a log file
+    def getDecodeString(self, struct='data'):
+        decode = '{float}{struct}->{name}{scaler}'.format(
+            float = '(float) ' if self.scaler and self.scaler > 1 else '',
+            struct = struct,
+            name=self.name,
+            scaler = ' / {scaler}'.format(scaler=self.scaler) if self.scaler and self.scaler > 1 else ''
+        )
+        
+        return decode
         
     #return an enum line
     def getEnum(self):

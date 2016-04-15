@@ -1,0 +1,1 @@
+Enforce endianness for multi-byte variables! (needs to be consistent between systems)
