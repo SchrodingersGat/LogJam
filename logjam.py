@@ -114,6 +114,7 @@ class LogFile:
        
         self.titleByIndexFunction()
         self.unitsByIndexFunction()
+        self.bitByIndexFunction()
        
     def constructHeaderFile(self):
         
@@ -172,6 +173,7 @@ class LogFile:
         self.hFile.appendComment("Functions for getting variable information based on the index");
         self.hFile.appendLine(self.titleByIndexPrototype()+';')
         self.hFile.appendLine(self.unitsByIndexPrototype()+';')
+        self.hFile.appendLine(self.bitByIndexPrototype() + ';')
         
         self.hFile.appendLine()
         
@@ -544,6 +546,28 @@ class LogFile:
         
         self.cFile.appendComment('Default return value')
         self.cFile.appendLine('return "";')
+        
+        self.cFile.closeBrace()
+        self.cFile.appendLine()
+        
+    def bitByIndexPrototype(self):
+        return self.createFunctionPrototype('GetBitByIndex',data=False,returnType='bool',extra={'index' : 'uint8_t'})
+        
+    def bitByIndexFunction(self):
+        self.cFile.appendComment('Check a selection bit based on its enumerated value')
+        self.cFile.appendLine(self.bitByIndexPrototype())
+        self.cFile.openBrace()
+        
+        self.cFile.startSwitch('index')
+        
+        fn = lambda var: 'selection->{name} == 1'.format(name=var.name)
+        
+        self.createCaseEnumeration(returnFunction = fn)
+        
+        self.cFile.endSwitch()
+        
+        self.cFile.appendComment("Default return value")
+        self.cFile.appendLine("return false;");
         
         self.cFile.closeBrace()
         self.cFile.appendLine()
