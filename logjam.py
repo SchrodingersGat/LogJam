@@ -24,6 +24,19 @@ def headerDefine(prefix):
 def headerFilename(prefix):
     return "log_{prefix}_defs".format(prefix=prefix.lower())
     
+def leftShift(n):
+    if n == 0:
+        return '& 0xFF'
+    else:
+        return '<< {n}'.format(n=int(n*8))
+        
+def rightShift(n):
+    if n == 0:
+        return '& 0xFF'
+    else:
+        return '>> {n}'.format(n=int(n*8))
+    
+    
 class LogFile:
     def __init__(self, vars, prefix, version, outputdir=None):
         self.variables = vars
@@ -408,7 +421,10 @@ class LogFile:
         
         self.cFile.appendLine(self.copyAllPrototype())
         self.cFile.openBrace()
-        self.cFile.appendLine('memcpy(dest, data, sizeof({struct}));'.format(struct=dataStruct(self.prefix)))
+        
+        for var in self.variables:
+            self.copyVarToBuffer(var)
+        
         self.cFile.closeBrace()
         self.cFile.appendLine()
 
@@ -434,16 +450,33 @@ class LogFile:
         for var in self.variables:
             self.cFile.appendLine(var.checkBit('selection'))
             self.cFile.openBrace()
-            #copy the data across
-            self.cFile.appendLine('memcpy(ptr, &({ptr}), {size}); //Copy the data'.format(ptr=var.getPtr('data'), size=var.getSize('data')))
-            self.cFile.appendLine('ptr += {size}; //Increment the pointer'.format(size=var.getSize('data')))
-            self.cFile.appendLine('count += {size}; //Increase the count'.format(size=var.getSize('data')))
+            
+            self.copyVarToBuffer(var, count=True)
             self.cFile.closeBrace()
         
         self.cFile.appendLine()
         self.cFile.appendLine('return count; //Return the number of bytes that were actually copied')
         self.cFile.closeBrace()
         self.cFile.appendLine()
+        
+    def copyVarToBuffer(self, var, count=False):
+        for i in range(var.bytes):
+            self.cFile.appendLine('ptr[i++] = (uint8_t) ({data} {shift});'.format(
+                data = var.getPtr('data'),
+                shift = rightShift(i)))
+        if count:
+            self.cFile.appendLine('count += {size};'.format(size=var.bytes))
+            
+    def copyVarFromBuffer(self, var, count=False):
+        for i in range(var.bytes):
+            self.cFile.appendLine('{data} {pipe}= ({format}) ptr[i++] {shift};'.format(
+                data = var.getPtr('data'),
+                pipe = '|' if i > 0 else ' ',
+                format = var.format,
+                shift = leftShift(i)))
+                
+        if count:
+            self.cFile.appendLine('count += {size};'.format(size=var.bytes))
         
     """
     Functions for copying data back out of a buffer
@@ -459,7 +492,10 @@ class LogFile:
         self.cFile.appendComment("Data will be copied even if it is invalid (selection bit is cleared)")
         self.cFile.appendLine(self.copyAllFromPrototype())
         self.cFile.openBrace()
-        self.cFile.appendLine("memcpy(data,src,sizeof({struct}));".format(struct=dataStruct(self.prefix)))
+        
+        for var in self.variables:
+            self.copyVarFromBuffer(var)
+        
         self.cFile.closeBrace()
         self.cFile.appendLine()
         
@@ -485,10 +521,9 @@ class LogFile:
         for var in self.variables:
             self.cFile.appendLine(var.checkBit('selection'))
             self.cFile.openBrace()
-            #copy the data across
-            self.cFile.appendLine('memcpy(&({ptr}), ptr, {size}); //Copy the data'.format(ptr=var.getPtr('data'), size=var.getSize('data')))
-            self.cFile.appendLine('ptr += {size}; //Increment the pointer'.format(size=var.getSize('data')))
-            self.cFile.appendLine('count += {size}; //Increase the count'.format(size=var.getSize('data')))
+            
+            self.copyVarFromBuffer(var,count=True)
+            
             self.cFile.closeBrace()
             
         self.cFile.appendLine()
@@ -614,6 +649,11 @@ class LogVariable:
         self.comment = "//!< " + str(comment) if comment else ""
         self.units = units
         self.scaler = scaler
+        
+        #get the number of bytes in this variable
+        result = re.match('u*int(\d*)',self.format)
+        
+        self.bytes = int(int(result.groups()[0]) / 8)
         
     def parseFormat(self, format):
         format = format.replace("unsigned","uint")
