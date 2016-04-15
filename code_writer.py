@@ -92,18 +92,15 @@ class CodeWriter:
         self.appendLine()
         
     def addCase(self, case):
-        if case.lower() == 'default':
-            self.appendLine("default:")
-        else:
-            self.appendLine('case {case}:'.format(case=case))
+        self.appendLine('case {case}:'.format(case=case))
         self.tabIn()
         
-    def endCase(self, returnType=None):
-        if not returnType:
-            self.appendLine('break;')
-        else:
-            self.appendLine('return {ret};'.format(ret=returnType))
+    def returnFromCase(self, value=None):
+        self.appendLine('return{val};'.format(val=' '+str(value) if value else ''))
+        self.tabOut()
         
+    def breakFromCase(self):
+        self.appendLine('break;')
         self.tabOut()
         
     #start an #ifdef block
