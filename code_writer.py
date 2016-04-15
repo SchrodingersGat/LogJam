@@ -31,9 +31,7 @@ class CodeWriter:
     #appent a C-style comment line
     def appendComment(self, text=None):
         
-        if not text:
-            self.appendLine("//")
-        else:
+        if text:
             self.appendLine("//" + text)
     
     #add a c-style include line
@@ -81,6 +79,33 @@ class CodeWriter:
         self.comment = False
         self.appendLine("*/")
         
+    def startSwitch(self, switch):
+        self.switch.append(switch)
+        self.appendLine('switch ({sw})'.format(sw=switch))
+        self.openBrace()
+        
+    def endSwitch(self):
+        self.tabOut()
+        self.append('}')
+        if len(self.switch) > 0:
+            self.appendComment(' ~switch ({sw})'.format(sw=self.switch.pop()))
+        self.appendLine()
+        
+    def addCase(self, case):
+        if case.lower() == 'default':
+            self.appendLine("default:")
+        else:
+            self.appendLine('case {case}:'.format(case=case))
+        self.tabIn()
+        
+    def endCase(self, returnType=None):
+        if not returnType:
+            self.appendLine('break;')
+        else:
+            self.appendLine('return {ret};'.format(ret=returnType))
+        
+        self.tabOut()
+        
     #start an #ifdef block
     def startIf(self, define, invert=False, comment=None):
         self.defs.append(define)
@@ -117,3 +142,4 @@ class CodeWriter:
         self.tabs = 0
         self.comment = False
         self.defs = [] #def levels
+        self.switch = [] #switch levels
