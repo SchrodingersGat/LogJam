@@ -8,11 +8,11 @@ LOGJAM_VERSION = "0.1"
     
 #bitfield struct of the format Device_LogBitfield_t"
 def bitfieldStruct(prefix):
-    return "{prefix}_LogBitfield_t".format(prefix=prefix)
+    return "Log{prefix}_Bitfield_t".format(prefix=prefix)
     
 #data struct for the format Device_LogData_t
 def dataStruct(prefix):
-    return "{prefix}_LogData_t".format(prefix=prefix)
+    return "Log{prefix}_Data_t".format(prefix=prefix)
 
 #header file define string
 def headerDefine(prefix):
@@ -60,13 +60,13 @@ class LogFile:
     def createVersionString(self):
     
         major, minor = self.version.split('.')
-        self.hFile.define("{prefix}_GetLogVersion()".format(prefix=self.prefix),
+        self.hFile.define("Log{prefix}_GetVersion()".format(prefix=self.prefix),
                           '"{version}"'.format(version=self.version),
                           comment="{prefix} Log revision number string".format(prefix=self.prefix))
-        self.hFile.define("{prefix}_LOG_VERSION_MAJOR".format(prefix=self.prefix.upper()),
+        self.hFile.define("LOG_{prefix}_VERSION_MAJOR".format(prefix=self.prefix.upper()),
                           "{version}".format(version=major),
                           comment="Major version number")
-        self.hFile.define("{prefix}_LOG_VERISION_MINOR".format(prefix=self.prefix.upper()),
+        self.hFile.define("LOG_{prefix}_VERISION_MINOR".format(prefix=self.prefix.upper()),
                           "{version}".format(version=minor),
                           comment="Minor version number")
         self.hFile.appendLine()
@@ -112,6 +112,8 @@ class LogFile:
             self.createRemoveFunction(v)
             self.createDecodeFunction(v)
        
+        self.titleByIndexFunction()
+       
     def constructHeaderFile(self):
         
         self.hFile.clear()
@@ -125,6 +127,7 @@ class LogFile:
         self.hFile.include('<stdint.h>', comment='Primitive definitions')
         self.hFile.include('<string.h>', comment='memcpy function')
         self.hFile.include('<stdio.h>', comment='sprintf function')
+        self.hFile.include('<stdbool.h>', comment='bool primitives')
         
         self.hFile.appendLine()
         
@@ -165,6 +168,11 @@ class LogFile:
         
         self.hFile.appendLine()
         
+        self.hFile.appendComment("Functions for getting variable information based on the index");
+        self.hFile.appendLine(self.titleByIndexPrototype()+';')
+        
+        self.hFile.appendLine()
+        
         self.hFile.startComment()
         self.hFile.appendLine("Variable Functions:")
         self.hFile.appendLine("These functions are applied to individual variables within the logging structure")
@@ -180,13 +188,13 @@ class LogFile:
         self.hFile.appendComment('Title and Unit string functions for all variables')
         #defines for extracting title and unit information
         for var in self.variables:
-            self.hFile.define('{prefix}Log_{name}Title() {title}'.format(
+            self.hFile.define('Log{prefix}_{name}Title() {title}'.format(
                 prefix=self.prefix,
                 name=var.name,
                 title=var.getTitleString()),
                 comment='Title string for {var} variable'.format(var=var.name))
                 
-            self.hFile.define('{prefix}Log_{name}Units() {units}'.format(
+            self.hFile.define('Log{prefix}_{name}Units() {units}'.format(
                 prefix=self.prefix,
                 name=var.name,
                 units=var.getUnitsString()),
@@ -213,15 +221,12 @@ class LogFile:
         self.hFile.appendLine('typedef enum')
         self.hFile.openBrace()
         
-        #start at zero
-        self.hFile.appendLine('LOG_{pref}_NONE = 0x00,'.format(pref=self.prefix.upper()))
-        
         for v in self.variables:
             self.hFile.appendLine(v.getEnum() + ', {comment}'.format(comment=v.comment))
         
         #give it a name
         self.hFile.tabOut()
-        self.hFile.appendLine('}} {pref}_LogEnum_t;\n'.format(pref=self.prefix))
+        self.hFile.appendLine('}} Log{pref}_Enum_t;\n'.format(pref=self.prefix))
         
         self.hFile.appendComment('Number of parameters in the {pref} logging structure'.format(pref=self.prefix))
         
@@ -351,7 +356,7 @@ class LogFile:
             paramstring += ' '
             paramstring += k
             
-        return '{inline}{returnType} {prefix}Log_{name}({data}{comma}{bits}{params})'.format(
+        return '{inline}{returnType} Log{prefix}_{name}({data}{comma}{bits}{params})'.format(
                     inline='inline ' if inline else '',
                     returnType=returnType,
                     prefix=self.prefix.capitalize(),
@@ -480,6 +485,42 @@ class LogFile:
         
         self.cFile.closeBrace()
         self.cFile.appendLine()
+        
+        
+    #enumerate through all the varibles in the struct, perform 'function' for each
+    def createCaseEnumeration(self, blankFunction=None, returnFunction=None):
+        
+        for var in self.variables:
+            self.cFile.addCase(var.getEnum())
+            
+            if blankFunction:
+                self.cFile.appendLine(blankFunction(var))
+            if returnFunction:
+                self.cFile.returnFromCase(returnFunction(var))
+            else:
+                self.cFile.breakFromCase()
+
+    def titleByIndexPrototype(self):
+        return 'char* Log{pref}_GetTitleByIndex(uint8_t index)'.format(pref=self.prefix)
+        
+    def titleByIndexFunction(self):
+        self.cFile.appendComment('Get the title of a variable based on its enumerated value')
+        self.cFile.appendLine(self.titleByIndexPrototype())
+        self.cFile.openBrace()
+        
+        self.cFile.startSwitch('index')
+        
+        #add case labels
+        #function to return the index
+        fn = lambda var: 'Log{prefix}_{var}Title();'.format(prefix=self.prefix,var=var.name)
+        
+        self.createCaseEnumeration(returnFunction = fn)
+        
+        self.cFile.endSwitch()
+        
+        self.cFile.closeBrace()
+        self.cFile.appendLine()
+        
 
 class LogVariable:
 
