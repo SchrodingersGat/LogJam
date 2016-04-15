@@ -1,6 +1,8 @@
 import re,os
 import time
 
+from math import ceil, log
+
 from code_writer import CodeWriter
 
 #LOGJAM version
@@ -115,6 +117,7 @@ class LogFile:
         self.titleByIndexFunction()
         self.unitsByIndexFunction()
         self.bitByIndexFunction()
+        self.valueByIndexFunction()
        
     def constructHeaderFile(self):
         
@@ -174,6 +177,7 @@ class LogFile:
         self.hFile.appendLine(self.titleByIndexPrototype()+';')
         self.hFile.appendLine(self.unitsByIndexPrototype()+';')
         self.hFile.appendLine(self.bitByIndexPrototype() + ';')
+        self.hFile.appendLine(self.valueByIndexPrototype() + ';')
         
         self.hFile.appendLine()
         
@@ -304,7 +308,7 @@ class LogFile:
         
     #function for decoding a particular variable into a printable string for writing to a log file
     def decodePrototype(self, var):
-        return self.createVariableFunction(var,'decode',blank=True,bits=False,returnType='void',extra={'*str' : 'char'})
+        return self.createVariableFunction(var,'decode',blank=True,bits=False,returnType='void',extra=[('*str','char')])
     
     def createDecodeFunction(self, var):
         self.cFile.appendComment('Decode the {name} variable and return a printable string (e.g. for saving to a log file'.format(name=var.name))
@@ -318,7 +322,10 @@ class LogFile:
         if not scale:
             pattern = '"%{sign}",{var}'.format(sign='u' if var.format.startswith('u') else 'd',var=var.getPtr('data'))
         else:
-            pattern = '"%f",(float) {var} / {scaling}'.format(var=var.getPtr('data'),scaling=var.scaler)
+            pattern = '"%.{n}f",(float) {var} / {scaling}'.format(
+                n = ceil(log(var.scaler) / log(10)),
+                var=var.getPtr('data'),
+                scaling=var.scaler)
             
         self.cFile.appendLine('sprintf(str,{patt});'.format(patt=pattern))
         self.cFile.closeBrace()
@@ -330,10 +337,10 @@ class LogFile:
         name = var.getFunctionName(name)
         
         if not extra:
-            extra = {}
+            extra = []
         
         if not blank:
-            extra['{ptr}{name}'.format(ptr='*' if ptr else '',name=var.name)] = var.format
+            extra.append(('{ptr}{name}'.format(ptr='*' if ptr else '',name=var.name),var.format))
         
         return self.createFunctionPrototype(name,extra=extra,**params)
         
@@ -344,21 +351,21 @@ class LogFile:
     bits - Include a pointer to the LogBitfield_t struct?
     inline - Make the function inline?
     returnType - Function return type
-    extra - Extra parameters to pass to the function python dict
+    extra - Extra parameters to pass to the function - list of tuples
     """
     def createFunctionPrototype(self, name, data=True, bits=True, inline=False, returnType='void', extra=None):
         
         if not extra:
-            extra = {}
+            extra = []
         
         #pass extra parameters to the function as such
         #params = {'*dest': 'void'} (name, type)
         paramstring = ""
-        for k in extra.keys():
+        for pair in extra:
             paramstring += ', '
-            paramstring += extra[k]
+            paramstring += pair[1]
             paramstring += ' '
-            paramstring += k
+            paramstring += pair[0]
             
         return '{inline}{returnType} Log{prefix}_{name}({data}{comma}{bits}{params})'.format(
                     inline='inline ' if inline else '',
@@ -391,7 +398,7 @@ class LogFile:
     Functions for copying data out of a struct and into a linear buffer
     """
     def copyAllPrototype(self):
-        return self.createFunctionPrototype('CopyAllToBuffer',bits=False,extra={'*dest' : 'void'})
+        return self.createFunctionPrototype('CopyAllToBuffer',bits=False,extra=[('*dest','void')])
         
     #create a function to copy ALL parameters across, conserving data format
     def createCopyAllToFunction(self):
@@ -406,7 +413,7 @@ class LogFile:
         self.cFile.appendLine()
 
     def copySelectedPrototype(self):
-        return self.createFunctionPrototype('CopyDataToBuffer',extra={'*dest' : 'void'}, returnType='uint16_t')
+        return self.createFunctionPrototype('CopyDataToBuffer',extra=[('*dest','void')], returnType='uint16_t')
         
     #create a function that copies across ONLY the bits that are set
     def createCopyDataToFunction(self):
@@ -445,7 +452,7 @@ class LogFile:
         return self.createFunctionPrototype(
                             'CopyAllFromBuffer',
                             bits = False,
-                            extra = {'*src' : 'void'})
+                            extra = [('*src','void')])
                             
     def createCopyAllFromFunction(self):
         self.cFile.appendComment("Copy across *all* data from a buffer")
@@ -459,7 +466,7 @@ class LogFile:
     def copyDataFromPrototype(self):
         return self.createFunctionPrototype('CopyDataFromBuffer',
                                             returnType='uint16_t',
-                                            extra = {'*src' : 'void'})
+                                            extra = [('*src','void')])
                                             
     def createCopyDataFromFunction(self):
         self.cFile.appendComment("Copy across *selected* data from a buffer")
@@ -498,7 +505,10 @@ class LogFile:
             self.cFile.addCase(var.getEnum())
             
             if blankFunction:
-                self.cFile.appendLine(blankFunction(var))
+                blank = blankFunction(var)
+                if not blank.endswith(';'):
+                    blank += ';'
+                self.cFile.appendLine(blank)
             if returnFunction:
                 self.cFile.returnFromCase(returnFunction(var))
             else:
@@ -551,7 +561,7 @@ class LogFile:
         self.cFile.appendLine()
         
     def bitByIndexPrototype(self):
-        return self.createFunctionPrototype('GetBitByIndex',data=False,returnType='bool',extra={'index' : 'uint8_t'})
+        return self.createFunctionPrototype('GetBitByIndex',data=False,returnType='bool',extra=[('index','uint8_t')])
         
     def bitByIndexFunction(self):
         self.cFile.appendComment('Check a selection bit based on its enumerated value')
@@ -568,6 +578,25 @@ class LogFile:
         
         self.cFile.appendComment("Default return value")
         self.cFile.appendLine("return false;");
+        
+        self.cFile.closeBrace()
+        self.cFile.appendLine()
+        
+    def valueByIndexPrototype(self):
+        return self.createFunctionPrototype('GetValueByIndex',bits=False,extra=[('index','uint8_t'), ('*str','char')])
+        
+    def valueByIndexFunction(self):
+        self.cFile.appendComment('Get a string-representation of a given variable, based on its enumerated value')
+        self.cFile.appendLine(self.valueByIndexPrototype())
+        self.cFile.openBrace()
+        
+        self.cFile.startSwitch('index')
+        
+        fn = lambda var: 'Log{prefix}_Decode{name}(data,str)'.format(prefix=self.prefix.capitalize(),name=var.name.capitalize())
+        
+        self.createCaseEnumeration(blankFunction=fn)
+        
+        self.cFile.endSwitch()
         
         self.cFile.closeBrace()
         self.cFile.appendLine()
