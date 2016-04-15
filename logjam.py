@@ -113,6 +113,7 @@ class LogFile:
             self.createDecodeFunction(v)
        
         self.titleByIndexFunction()
+        self.unitsByIndexFunction()
        
     def constructHeaderFile(self):
         
@@ -170,6 +171,7 @@ class LogFile:
         
         self.hFile.appendComment("Functions for getting variable information based on the index");
         self.hFile.appendLine(self.titleByIndexPrototype()+';')
+        self.hFile.appendLine(self.unitsByIndexPrototype()+';')
         
         self.hFile.appendLine()
         
@@ -247,7 +249,7 @@ class LogFile:
             self.hFile.appendComment('Variable : {name}, {units}'.format(name=v.name,units=v.units if v.units else 'no units specified'))
             
             if v.scaler > 1:
-                self.hFile.appendComment('{name} will be scaled by {scaler} when decoded to a log file'.format(name=v.name,scaler=v.scaler))
+                self.hFile.appendComment('{name} will be scaled by 1.0/{scaler} when decoded to a log file'.format(name=v.name,scaler=v.scaler))
             self.hFile.appendLine(v.dataString())
         
         self.hFile.tabOut()
@@ -309,12 +311,12 @@ class LogFile:
         self.cFile.openBrace()
         line = ''
         #perform scaling!
-        scale = var.scaler and var.scaler > 0
+        scale = var.scaler > 1
         
-        if scale:
+        if not scale:
             pattern = '"%{sign}",{var}'.format(sign='u' if var.format.startswith('u') else 'd',var=var.getPtr('data'))
         else:
-            pattern = '"%f",(float) {var} / {scaler}'.format(var=var.getPtr('data',scaler=var.scaler))
+            pattern = '"%f",(float) {var} / {scaling}'.format(var=var.getPtr('data'),scaling=var.scaler)
             
         self.cFile.appendLine('sprintf(str,{patt});'.format(patt=pattern))
         self.cFile.closeBrace()
@@ -512,16 +514,40 @@ class LogFile:
         
         #add case labels
         #function to return the index
-        fn = lambda var: 'Log{prefix}_{var}Title();'.format(prefix=self.prefix,var=var.name)
+        fn = lambda var: 'Log{prefix}_{var}Title()'.format(prefix=self.prefix,var=var.name)
         
         self.createCaseEnumeration(returnFunction = fn)
         
         self.cFile.endSwitch()
         
+        self.cFile.appendComment('Default return value')
+        self.cFile.appendLine('return "";')
+        
         self.cFile.closeBrace()
         self.cFile.appendLine()
         
-
+    def unitsByIndexPrototype(self):
+        return 'char* Log{pref}_GetUnitsByIndex(uint8_t index)'.format(pref=self.prefix)
+        
+    def unitsByIndexFunction(self):
+        self.cFile.appendComment('Get the units of a variable based on its enumerated value')
+        self.cFile.appendLine(self.unitsByIndexPrototype())
+        self.cFile.openBrace()
+        
+        self.cFile.startSwitch('index')
+        
+        fn = lambda var: 'Log{prefix}_{var}Units()'.format(prefix=self.prefix,var=var.name)
+        
+        self.createCaseEnumeration(returnFunction = fn)
+        
+        self.cFile.endSwitch()
+        
+        self.cFile.appendComment('Default return value')
+        self.cFile.appendLine('return "";')
+        
+        self.cFile.closeBrace()
+        self.cFile.appendLine()
+        
 class LogVariable:
 
     #prefix = name of the 'device'
