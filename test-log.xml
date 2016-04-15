@@ -5,4 +5,10 @@
     <Data name="voltage" type="unsigned16"/>
     <Data name="current" type="unsigned8" scaler="2" units="Amps" comment="Current in 0.5A increments"/>
     <Data name="monkeys" type="unsigned8"/>
+    <Data name="uptime" type="unsigned32" comment="Amount of time the system has been alive" units="ms"/>
+    <Data name="power" type="signed16" units="W" scaler="10"/>
+    <Data name="data1" type="unsigned8"/>
+    <Data name="data2" type="unsigned8"/>
+    <Data name="data3" type="unsigned8"/>
+    <Data name="data4" type="unsigned8"/>
 </Logging>
