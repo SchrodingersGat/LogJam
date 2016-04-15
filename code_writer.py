@@ -1,3 +1,5 @@
+CPP = "__cplusplus"
+
 #class for simplifying generation of code
 class CodeWriter:
     def __init__(self, fname):
@@ -97,12 +99,12 @@ class CodeWriter:
         self.appendLine()
         
     def externEntry(self):
-        self.startIf('__cplusplus', comment='Play nice with C++ compilers!')
+        self.startIf(CPP, comment='Play nice with C++ compilers!')
         self.appendLine('extern "C" {')
         self.endIf()
         
     def externExit(self):
-        self.startIf('__cplusplus', comment='We are done playing nice with C++ compilers')
+        self.startIf(CPP, comment='We are done playing nice with C++ compilers')
         self.appendLine('}')
         self.endIf()
         

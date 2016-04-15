@@ -192,7 +192,7 @@ class LogFile:
         self.hFile.appendLine('LOG_{pref}_NONE = 0x00,'.format(pref=self.prefix.upper()))
         
         for v in self.variables:
-            self.hFile.appendLine(v.getEnum() + ',')
+            self.hFile.appendLine(v.getEnum() + ', {comment}'.format(comment=v.comment))
         
         #give it a name
         self.hFile.tabOut()
@@ -239,11 +239,11 @@ class LogFile:
         self.hFile.appendLine('} ' + bitfieldStruct(self.prefix) + ';')
         
     def removePrototype(self,var):
-        return self.createVariableFunction(var,'remove',inline=True,data=False)
+        return self.createVariableFunction(var,'remove',blank=True,inline=True,data=False)
         
     #create a function to remove a var from the logging structure
     def createRemoveFunction(self, var):
-        self.cFile.appendComment("Remove variable {name} from the {prefix} loggin structure".format(name=var.name,prefix=self.prefix))
+        self.cFile.appendComment("Remove variable {name} from the {prefix} logging structure".format(name=var.name,prefix=self.prefix))
         self.cFile.appendLine(self.removePrototype(var))
         self.cFile.openBrace()
         self.cFile.appendLine(var.clearBit('selection'))
@@ -268,19 +268,24 @@ class LogFile:
         self.cFile.closeBrace()
         self.cFile.appendLine()
         
-    def createVariableFunction(self, var, name, **params):
+    def createVariableFunction(self, var, name, blank=False, ptr=False, **params):
         name = var.getFunctionName(name)
         
-        return self.createFunctionPrototype(name,params={'*'+var.name : var.format},**params)
+        if blank:
+            paramstring ={}
+        else:
+            paramstring = {'{ptr}'.format(ptr='*' if ptr else '')+var.name : var.format}
         
-    def createFunctionPrototype(self, name, data=True, bits=True, inline=False, returnType='void', params={}):
+        return self.createFunctionPrototype(name,extra=paramstring,**params)
+        
+    def createFunctionPrototype(self, name, data=True, bits=True, inline=False, returnType='void', extra={}):
         
         #pass extra parameters to the function as such
         #params = {'*dest': 'void'} (name, type)
         paramstring = ""
-        for k in params.keys():
+        for k in extra.keys():
             paramstring += ', '
-            paramstring += params[k]
+            paramstring += extra[k]
             paramstring += ' '
             paramstring += k
             
@@ -315,7 +320,7 @@ class LogFile:
     Functions for copying data out of a struct and into a linear buffer
     """
     def copyAllPrototype(self):
-        return self.createFunctionPrototype('CopyAllToBuffer',bits=False,params={'*dest' : 'void'})
+        return self.createFunctionPrototype('CopyAllToBuffer',bits=False,extra={'*dest' : 'void'})
         
     #create a function to copy ALL parameters across, conserving data format
     def createCopyAllFunction(self):
@@ -330,7 +335,7 @@ class LogFile:
         self.cFile.appendLine()
 
     def copySelectedPrototype(self):
-        return self.createFunctionPrototype('CopyDataToBuffer',params={'*dest' : 'void'}, returnType='uint16_t')
+        return self.createFunctionPrototype('CopyDataToBuffer',extra={'*dest' : 'void'}, returnType='uint16_t')
         
     #create a function that copies across ONLY the bits that are set
     def createCopySelectedFunction(self):
@@ -369,7 +374,7 @@ class LogFile:
         return self.createFunctionPrototype(
                             'CopyAllFromBuffer',
                             bits = False,
-                            params = {'*src' : 'void'})
+                            extra = {'*src' : 'void'})
                             
     def createCopyAllFromFunction(self):
         self.cFile.appendComment("Copy across *all* data from a buffer")
@@ -411,7 +416,7 @@ class LogVariable:
                 
     #bitfield definition string (with comment appended)
     def bitfieldString(self):
-        return "unsigned {name} : 1; {comment}".format(
+        return "uint8_t {name} : 1; {comment}".format(
                 name = self.name,
                 comment = self.comment)
                 
