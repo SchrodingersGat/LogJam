@@ -44,37 +44,12 @@ def headerFileName(prefix):
 def bitfieldSize(nBits):
     return ceil(nBits / 8)
     
+#extract num bytes from variable
+#t is for e.g. 'uint8_t' 'int16_t'
+def extractNumBytesFromVarType(t):
+    result = re.match('u*int(\d*)',t)
+    
+    return int(int(result.groups()[0])/8)
+    
 LOGJAM_HEADER_NAME = "logjam_common"
 LOGJAM_DEFINE_NAME = "_LOGJAM_COMMON_H_"
-
-COPY_BYTES_TOFROM_BUFFER = "LogJam_Copy{n}Bytes{dir}Buffer"
-    
-#create code that is common to all data logging types
-def LogJamHeaderFile(outputdir = None):
-
-    filename = LOGJAM_HEADER_NAME + '.h'
-    
-    if outputdir:
-        filename=os.path.join(outputdir, filename)
-    
-    h = CodeWriter(filename)
-    
-    h.append(AutogenString())
-    
-    h.startIf(LOGJAM_DEFINE_NAME, invert = True)
-    h.define(LOGJAM_DEFINE_NAME)
-    
-    h.appendLine()
-    
-    h.include('<stdint.h>')
-    h.include('<stdbool.h>')
-    h.include('<stdio.h>')
-    h.include('<string.h>')
-    
-    h.appendLine()
-    
-    h.endIf()
-    h.appendLine()
-    
-    #write the file
-    h.writeToFile()
