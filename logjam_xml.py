@@ -1,10 +1,10 @@
 import sys
 import os
+import shutil
 
 import re
 
 from logjam import LogVariable, LogFile
-from logjam_common import LogJamHeaderFile
 
 def say(*arg):
     print(" ".join(map(str,arg)))
@@ -96,7 +96,9 @@ with open(xml_file, 'rt') as xml:
     
     lf.saveFiles()
     
-    #write the common files
-    LogJamHeaderFile(outputdir)
+#copy across the 'common' files
+if outputdir:
+    shutil.copyfile('logjam_common.h',os.path.join(outputdir,'logjam_common.h'))
+    shutil.copyfile('logjam_common.c',os.path.join(outputdir,'logjam_common.c'))
 
 close("Complete!")
