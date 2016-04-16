@@ -402,22 +402,30 @@ class LogFile:
             self.cFile.appendLine('count += {size};'.format(size=bf_size))
         
     def copyVarToBuffer(self, var, count=False):
-        for i in range(var.bytes):
-            self.cFile.appendLine('*(ptr++) = ({data} {shift});'.format(
-                data = var.getPtr('data'),
-                shift = rightShiftBytes(i)))
-#            self.cFile.appendLine('ptr++;')
+    
+        #single byte, just copy across
+        if var.bytes == 1: 
+            self.cFile.appendLine('*(ptr++) = {data};'.format(data=var.getPtr('data')),comment='Single byte copy')
+        else:
+            self.cFile.appendLine('Copy{sign}{bits}ToBuffer({data},ptr)'.format(
+                            sign='I' if var.isSigned() else 'U',
+                            bits=var.bytes*8,
+                            data=var.getPtr('data')))
+            self.cFile.appendLine('ptr += {size};'.format(size=var.bytes))
+            
         if count:
             self.cFile.appendLine('count += {size};'.format(size=var.bytes))
             
     def copyVarFromBuffer(self, var, count=False):
-        for i in range(var.bytes):
-            self.cFile.appendLine('{data} {pipe}= (({format}) *(ptr++)) {shift};'.format(
-                data = var.getPtr('data'),
-                pipe = '|' if i > 0 else ' ',
-                format = var.format,
-                shift = leftShiftBytes(i)))
-#            self.cFile.appendLine('ptr++;')
+    
+        if var.bytes == 1:
+            self.cFile.appendLine('{data} = *(ptr++);'.format(data=var.getPtr('data')),comment='Single byte copy')
+        else:
+            self.cFile.appendLine('Copy{sign}{bits}FromBuffer({data},ptr)'.format(
+                            sign='I' if var.isSigned() else 'U',
+                            bits=var.bytes*8,
+                            data=var.getPtr('data')))
+            self.cFile.appendLine('ptr += {size};'.format(size=var.bytes))
                 
         if count:
             self.cFile.appendLine('count += {size};'.format(size=var.bytes))
