@@ -91,7 +91,7 @@ with open(xml_file, 'rt') as xml:
             
         variables.append(LogVariable(prefix,name,datatype,comment,units=units, scaler=scaler))
         
-    lf = LogFile(variables, prefix, version, outputdir=outputdir)
+    lf = LogFile(variables, prefix, version, os.path.basename(xml_file), outputdir=outputdir)
     
     lf.saveFiles()
 
