@@ -22,22 +22,20 @@ class CodeWriter:
         self.text += text
         
     #append a line (enforce newline chracter)
-    def appendLine(self, text=None):
-        if not text:
-            self.append('\n')
-        else:
-            self.append(text + '\n')
-    
-    #appent a C-style comment line
-    def appendComment(self, text=None):
-        
+    def appendLine(self, text=None, comment=None):
         if text:
-            self.appendLine("//" + text)
+            self.append(text)
+        if comment:
+            if text:
+                self.append(' ') #add a space after the text
+            self.append('//' + comment)
+            
+        self.append('\n')
             
     #create a c-style enum
     def createEnum(self, name, enums, start=0, values=None):
         
-        self.appendComment('{name} enumeration'.format(name=name))
+        self.appendLine(comment='{name} enumeration'.format(name=name))
         self.appendLine('typedef enum')
         self.openBrace()
         
@@ -110,7 +108,7 @@ class CodeWriter:
         self.tabOut()
         self.append('}')
         if len(self.switch) > 0:
-            self.appendComment(' ~switch ({sw})'.format(sw=self.switch.pop()))
+            self.appendLine(comment=' ~switch ({sw})'.format(sw=self.switch.pop()))
         self.appendLine()
         
     def addCase(self, case):
@@ -129,7 +127,7 @@ class CodeWriter:
     def startIf(self, define, invert=False, comment=None):
         self.defs.append(define)
         if comment:
-            self.appendComment(comment)
+            self.appendLine(comment=comment)
             
         if invert:
             self.appendLine("#ifndef " + define)
@@ -139,7 +137,7 @@ class CodeWriter:
     def endIf(self):
         self.append("#endif ")
         if len(self.defs) > 0:
-            self.appendComment(self.defs.pop())
+            self.appendLine(comment=self.defs.pop())
         self.appendLine()
         
     def externEntry(self):

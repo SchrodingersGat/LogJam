@@ -16,8 +16,8 @@ class LogFile:
         self.version = version
         self.source = sourceFile
         
-        hfile = headerFilename(prefix) + '.h'
-        cfile = headerFilename(prefix) + '.c'
+        hfile = headerFileName(prefix) + '.h'
+        cfile = headerFileName(prefix) + '.c'
         
         if outputdir:
             hfile = os.path.join(outputdir, hfile)
@@ -27,37 +27,14 @@ class LogFile:
         self.cFile = CodeWriter(cfile)
     
     def createHeaderEntry(self):
-        self.hFile.startIf(headerDefine(self.prefix),invert=True)
-        self.hFile.define(headerDefine(self.prefix))
+        self.hFile.startIf(headerDefineName(self.prefix),invert=True)
+        self.hFile.define(headerDefineName(self.prefix))
         
     def createHeaderExit(self):
         self.hFile.endIf()
         
     def createHeaderInclude(self):
-        self.cFile.include('"{file}.h"'.format(file=headerFilename(self.prefix)))
-        
-    def createAutogenInfo(self):
-        self.hFile.startComment()
-        self.hFile.appendLine("Logging structure definitions for the {device}".format(device=self.prefix))
-        self.hFile.appendLine("This file was created using LogJam v{version}".format(version=LOGJAM_VERSION))
-        self.hFile.appendLine("Generated at " + time.ctime())
-        self.hFile.appendLine("LogJam - https://github.com/SchrodingersGat/LogJam")
-        self.hFile.finishComment()
-        self.hFile.appendLine()
-        
-    def createVersionString(self):
-    
-        major, minor = self.version.split('.')
-        self.hFile.define("Log{prefix}_GetVersion()".format(prefix=self.prefix),
-                          '"{version}"'.format(version=self.version),
-                          comment="{prefix} Log revision number string".format(prefix=self.prefix))
-        self.hFile.define("LOG_{prefix}_VERSION_MAJOR".format(prefix=self.prefix.upper()),
-                          "{version}".format(version=major),
-                          comment="Major version number")
-        self.hFile.define("LOG_{prefix}_VERISION_MINOR".format(prefix=self.prefix.upper()),
-                          "{version}".format(version=minor),
-                          comment="Minor version number")
-        self.hFile.appendLine()
+        self.cFile.include('"{file}.h"'.format(file=headerFileName(self.prefix)))
         
     def constructCodeFile(self):
         
@@ -108,26 +85,20 @@ class LogFile:
         self.createHeaderEntry()
         
         self.hFile.appendLine()
-        
-        self.hFile.include('<stdint.h>', comment='Primitive definitions')
-        self.hFile.include('<string.h>', comment='memcpy function')
-        self.hFile.include('<stdio.h>', comment='sprintf function')
-        self.hFile.include('<stdbool.h>', comment='bool primitives')
+        self.hFile.include('"' + LOGJAM_HEADER_NAME + '.h"', comment='common LogJam routines')
         
         self.hFile.appendLine()
         
         self.hFile.externEntry()
-        
-        
-        
+
         self.hFile.appendLine()
         #create global enumeration for the variables
         self.hFile.createEnum('Log{pref}_Enum_t'.format(pref=self.prefix),[v.getEnum() for v in self.variables])
         
-        self.hFile.appendComment("Bitfield struct definition for the " + self.prefix + " logging struct")
+        self.hFile.appendLine(comment="Bitfield struct definition for the " + self.prefix + " logging struct")
         self.createBitfieldStruct()
         self.hFile.appendLine()
-        self.hFile.appendComment("Data struct definition for the " + self.prefix + " logging struct")
+        self.hFile.appendLine(comment="Data struct definition for the " + self.prefix + " logging struct")
         self.createDataStruct()
         
         self.hFile.appendLine()
@@ -136,24 +107,24 @@ class LogFile:
         self.hFile.appendLine("Global Functions:")
         self.hFile.finishComment()
         
-        self.hFile.appendComment("Reset the bitfield of the logging structure")
+        self.hFile.appendLine(comment="Reset the bitfield of the logging structure")
         self.hFile.appendLine(self.resetPrototype() + ";")
         
-        self.hFile.appendComment('Copy *all* data from the logging structure')
+        self.hFile.appendLine(comment='Copy *all* data from the logging structure')
         self.hFile.appendLine(self.copyAllPrototype() + ';')
         
-        self.hFile.appendComment("Copy *selected* data from the logging structure")
+        self.hFile.appendLine(comment="Copy *selected* data from the logging structure")
         self.hFile.appendLine(self.copySelectedPrototype() + ";")
         
-        self.hFile.appendComment('Copy all data back out from a buffer')
+        self.hFile.appendLine(comment='Copy all data back out from a buffer')
         self.hFile.appendLine(self.copyAllFromPrototype() + ';')
         
-        self.hFile.appendComment('Copy *selected* data back out from a buffer')
+        self.hFile.appendLine(comment='Copy *selected* data back out from a buffer')
         self.hFile.appendLine(self.copyDataFromPrototype() + ';')
         
         self.hFile.appendLine()
         
-        self.hFile.appendComment("Functions for getting variable information based on the index");
+        self.hFile.appendLine(comment="Functions for getting variable information based on the index");
         self.hFile.appendLine(self.titleByIndexPrototype()+';')
         self.hFile.appendLine(self.unitsByIndexPrototype()+';')
         self.hFile.appendLine(self.bitByIndexPrototype() + ';')
@@ -173,7 +144,7 @@ class LogFile:
             self.hFile.appendLine(self.decodePrototype(var) + '; //Decode ' + var.prefix + ' into a printable string')
             
         self.hFile.appendLine()
-        self.hFile.appendComment('Title and Unit string functions for all variables')
+        self.hFile.appendLine(comment='Title and Unit string functions for all variables')
         #defines for extracting title and unit information
         for var in self.variables:
             self.hFile.define('Log{prefix}_{name}Title() {title}'.format(
@@ -211,15 +182,15 @@ class LogFile:
         self.hFile.tabIn()
         
         for v in self.variables:
-            self.hFile.appendComment('Variable : {name}, {units}'.format(name=v.name,units=v.units if v.units else 'no units specified'))
+            self.hFile.appendLine(comment='Variable : {name}, {units}'.format(name=v.name,units=v.units if v.units else 'no units specified'))
             
             if v.scaler > 1:
-                self.hFile.appendComment('{name} will be scaled by 1.0/{scaler} when decoded to a log file'.format(name=v.name,scaler=v.scaler))
+                self.hFile.appendLine(comment='{name} will be scaled by 1.0/{scaler} when decoded to a log file'.format(name=v.name,scaler=v.scaler))
             self.hFile.appendLine(v.dataString())
         
         self.hFile.tabOut()
         
-        self.hFile.appendLine('} ' + dataStruct(self.prefix) + ';')
+        self.hFile.appendLine('} ' + dataStructName(self.prefix) + ';')
         
     #create a bitfield struct of all variables
     def createBitfieldStruct(self):
@@ -233,14 +204,14 @@ class LogFile:
             
         self.hFile.tabOut()
         
-        self.hFile.appendLine('} ' + bitfieldStruct(self.prefix) + ';')
+        self.hFile.appendLine('} ' + bitfieldStructName(self.prefix) + ';')
         
     def removePrototype(self,var):
         return self.createVariableFunction(var,'remove',blank=True,inline=True,data=False)
         
     #create a function to remove a var from the logging structure
     def createRemoveFunction(self, var):
-        self.cFile.appendComment("Remove variable {name} from the {prefix} logging structure".format(name=var.name,prefix=self.prefix))
+        self.cFile.appendLine(comment="Remove variable {name} from the {prefix} logging structure".format(name=var.name,prefix=self.prefix))
         self.cFile.appendLine(self.removePrototype(var))
         self.cFile.openBrace()
         self.cFile.appendLine(var.clearBit('selection'))
@@ -253,7 +224,7 @@ class LogFile:
     #create the function for adding a variable to the logging structure
     def createAdditionFunction(self, var):
     
-        self.cFile.appendComment('Add variable {name} to the {prefix} logging struct'.format(
+        self.cFile.appendLine(comment='Add variable {name} to the {prefix} logging struct'.format(
                         name=var.name,
                         prefix=self.prefix))
                         
@@ -270,8 +241,8 @@ class LogFile:
         return self.createVariableFunction(var,'decode',blank=True,bits=False,returnType='void',extra=[('*str','char')])
     
     def createDecodeFunction(self, var):
-        self.cFile.appendComment('Decode the {name} variable and return a printable string (e.g. for saving to a log file'.format(name=var.name))
-        self.cFile.appendComment('Pointer to *str must have enough space allocated!')
+        self.cFile.appendLine(comment='Decode the {name} variable and return a printable string (e.g. for saving to a log file'.format(name=var.name))
+        self.cFile.appendLine(comment='Pointer to *str must have enough space allocated!')
         self.cFile.appendLine(self.decodePrototype(var))
         self.cFile.openBrace()
         line = ''
@@ -332,8 +303,8 @@ class LogFile:
                     prefix=self.prefix.capitalize(),
                     name=name,
                     comma=', ' if data and bits else '',
-                    data=dataStruct(self.prefix) + " *data" if data else "",
-                    bits=bitfieldStruct(self.prefix) + " *selection" if bits else "",
+                    data=dataStructName(self.prefix) + " *data" if data else "",
+                    bits=bitfieldStructName(self.prefix) + " *selection" if bits else "",
                     params=paramstring)
                     
     def resetPrototype(self):
@@ -343,12 +314,12 @@ class LogFile:
     def createResetFunction(self):
         
         #add the reset function to the c file
-        self.cFile.appendComment('Reset the log data struct (e.g. after writing to memory)')
-        self.cFile.appendComment('Only the selection bits need to be reset')
+        self.cFile.appendLine(comment='Reset the log data struct (e.g. after writing to memory)')
+        self.cFile.appendLine(comment='Only the selection bits need to be reset')
         self.cFile.appendLine(self.resetPrototype())
         self.cFile.openBrace()
         
-        self.cFile.appendLine("memset(selection,0,sizeof(" + bitfieldStruct(self.prefix) + "));")
+        self.cFile.appendLine("memset(selection,0,sizeof(" + bitfieldStructName(self.prefix) + "));")
         
         self.cFile.closeBrace()
         self.cFile.appendLine()
@@ -362,8 +333,8 @@ class LogFile:
     #create a function to copy ALL parameters across, conserving data format
     def createCopyAllToFunction(self):
         
-        self.cFile.appendComment("Copy ALL data in the log struct to the provided address")
-        self.cFile.appendComment("Data will be copied even if the associated selection bit is cleared")
+        self.cFile.appendLine(comment="Copy ALL data in the log struct to the provided address")
+        self.cFile.appendLine(comment="Data will be copied even if the associated selection bit is cleared")
         
         self.cFile.appendLine(self.copyAllPrototype())
         self.cFile.openBrace()
@@ -382,21 +353,21 @@ class LogFile:
         
     #create a function that copies across ONLY the bits that are set
     def createCopyDataToFunction(self):
-        self.cFile.appendComment("Copy across data whose selection bit is set in the provided bitfield")
-        self.cFile.appendComment("Only data selected will be copied (in sequence)")
-        self.cFile.appendComment("Ensure a copy of the selection bits is stored for decoding")
+        self.cFile.appendLine(comment="Copy across data whose selection bit is set in the provided bitfield")
+        self.cFile.appendLine(comment="Only data selected will be copied (in sequence)")
+        self.cFile.appendLine(comment="Ensure a copy of the selection bits is stored for decoding")
         self.cFile.appendLine(self.copySelectedPrototype());
         self.cFile.openBrace()
         self.cFile.appendLine('uint8_t *ptr = (uint8_t*) dest; //Pointer for keeping track of data addressing')
         self.cFile.appendLine('uint8_t *bf = (uint8_t*) selection; //Pointer for keeping track of the bitfield')
         self.cFile.appendLine('uint16_t count = 0; //Variable for keeping track of how many bytes were copied')
         self.cFile.appendLine()
-        self.cFile.appendComment('Copy the selection for keeping track of data')
+        self.cFile.appendLine(comment='Copy the selection for keeping track of data')
         
         self.copyBitfieldToBuffer(count=True)
         
         self.cFile.appendLine()
-        self.cFile.appendComment('Check each variable in the logging struct to see if it should be added')
+        self.cFile.appendLine(comment='Check each variable in the logging struct to see if it should be added')
         
         for var in self.variables:
             self.cFile.appendLine(var.checkBit('selection'))
@@ -461,8 +432,8 @@ class LogFile:
                             extra = [('*src','void')])
                             
     def createCopyAllFromFunction(self):
-        self.cFile.appendComment("Copy across *all* data from a buffer")
-        self.cFile.appendComment("Data will be copied even if it is invalid (selection bit is cleared)")
+        self.cFile.appendLine(comment="Copy across *all* data from a buffer")
+        self.cFile.appendLine(comment="Data will be copied even if it is invalid (selection bit is cleared)")
         self.cFile.appendLine(self.copyAllFromPrototype())
         
         self.cFile.openBrace()
@@ -482,7 +453,7 @@ class LogFile:
                                             extra = [('*src','void')])
                                             
     def createCopyDataFromFunction(self):
-        self.cFile.appendComment("Copy across *selected* data from a buffer")
+        self.cFile.appendLine(comment="Copy across *selected* data from a buffer")
         self.cFile.appendLine(self.copyDataFromPrototype())
         self.cFile.openBrace()
         
@@ -490,12 +461,12 @@ class LogFile:
         self.cFile.appendLine('uint8_t *bf = (uint8_t*) selection; //Pointer for keeping track of the bitfield')
         self.cFile.appendLine('uint16_t count = 0; //Variable for keeping track of how many bytes were copied')
         self.cFile.appendLine()
-        self.cFile.appendComment('Copy the selection bits')
+        self.cFile.appendLine(comment='Copy the selection bits')
         
         self.copyBitfieldFromBuffer(count=True)
         
         self.cFile.appendLine()
-        self.cFile.appendComment('Only copy across variables that have actually been stored in the buffer')
+        self.cFile.appendLine(comment='Only copy across variables that have actually been stored in the buffer')
         
         for var in self.variables:
             self.cFile.appendLine(var.checkBit('selection'))
@@ -532,7 +503,7 @@ class LogFile:
         return 'char* Log{pref}_GetTitleByIndex(uint8_t index)'.format(pref=self.prefix)
         
     def titleByIndexFunction(self):
-        self.cFile.appendComment('Get the title of a variable based on its enumerated value')
+        self.cFile.appendLine(comment='Get the title of a variable based on its enumerated value')
         self.cFile.appendLine(self.titleByIndexPrototype())
         self.cFile.openBrace()
         
@@ -546,7 +517,7 @@ class LogFile:
         
         self.cFile.endSwitch()
         
-        self.cFile.appendComment('Default return value')
+        self.cFile.appendLine(comment='Default return value')
         self.cFile.appendLine('return "";')
         
         self.cFile.closeBrace()
@@ -556,7 +527,7 @@ class LogFile:
         return 'char* Log{pref}_GetUnitsByIndex(uint8_t index)'.format(pref=self.prefix)
         
     def unitsByIndexFunction(self):
-        self.cFile.appendComment('Get the units of a variable based on its enumerated value')
+        self.cFile.appendLine(comment='Get the units of a variable based on its enumerated value')
         self.cFile.appendLine(self.unitsByIndexPrototype())
         self.cFile.openBrace()
         
@@ -568,7 +539,7 @@ class LogFile:
         
         self.cFile.endSwitch()
         
-        self.cFile.appendComment('Default return value')
+        self.cFile.appendLine(comment='Default return value')
         self.cFile.appendLine('return "";')
         
         self.cFile.closeBrace()
@@ -578,7 +549,7 @@ class LogFile:
         return self.createFunctionPrototype('GetBitByIndex',data=False,returnType='bool',extra=[('index','uint8_t')])
         
     def bitByIndexFunction(self):
-        self.cFile.appendComment('Check a selection bit based on its enumerated value')
+        self.cFile.appendLine(comment='Check a selection bit based on its enumerated value')
         self.cFile.appendLine(self.bitByIndexPrototype())
         self.cFile.openBrace()
         
@@ -590,7 +561,7 @@ class LogFile:
         
         self.cFile.endSwitch()
         
-        self.cFile.appendComment("Default return value")
+        self.cFile.appendLine(comment="Default return value")
         self.cFile.appendLine("return false;");
         
         self.cFile.closeBrace()
@@ -600,7 +571,7 @@ class LogFile:
         return self.createFunctionPrototype('GetValueByIndex',bits=False,extra=[('index','uint8_t'), ('*str','char')])
         
     def valueByIndexFunction(self):
-        self.cFile.appendComment('Get a string-representation of a given variable, based on its enumerated value')
+        self.cFile.appendLine(comment='Get a string-representation of a given variable, based on its enumerated value')
         self.cFile.appendLine(self.valueByIndexPrototype())
         self.cFile.openBrace()
         

@@ -4,6 +4,7 @@ import os
 import re
 
 from logjam import LogVariable, LogFile
+from logjam_common import LogJamHeaderFile
 
 def say(*arg):
     print(" ".join(map(str,arg)))
@@ -94,5 +95,8 @@ with open(xml_file, 'rt') as xml:
     lf = LogFile(variables, prefix, version, os.path.basename(xml_file), outputdir=outputdir)
     
     lf.saveFiles()
+    
+    #write the common files
+    LogJamHeaderFile(outputdir)
 
 close("Complete!")
