@@ -600,10 +600,7 @@ class LogVariable:
         self.units = units
         self.scaler = scaler
         
-        #get the number of bytes in this variable
-        result = re.match('u*int(\d*)',self.format)
-        
-        self.bytes = int(int(result.groups()[0]) / 8)
+        self.bytes = extractNumBytesFromVarType(self.format)
         
     def parseFormat(self, format):
         format = format.replace("unsigned","uint")
@@ -672,3 +669,6 @@ class LogVariable:
             return '""'
         else:
             return '"{units}"'.format(units=self.units)
+            
+    def isSigned(self):
+        return self.format.startswith('i')
