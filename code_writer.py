@@ -33,6 +33,28 @@ class CodeWriter:
         
         if text:
             self.appendLine("//" + text)
+            
+    #create a c-style enum
+    def createEnum(self, name, enums, start=0, values=None):
+        
+        self.appendComment('{name} enumeration'.format(name=name))
+        self.appendLine('typedef enum')
+        self.openBrace()
+        
+        for i,enum in enumerate(enums):
+            #values should be a dict of enum/value pairs
+            if values and enum in values.keys():
+                eVal = values[enum]
+            elif i == 0:
+                eVal = start
+            else:
+                eVal = None
+                
+            self.appendLine('{enum}{value},'.format(enum=enum,value=' = eVal' if eVal else ''))
+            
+        self.tabOut()
+        self.appendLine('}} {name};'.format(name=name))
+        self.appendLine()
     
     #add a c-style include line
     def include(self, file,comment=None):
