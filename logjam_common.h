@@ -16,6 +16,10 @@ void CopyI32ToBuffer(int32_t data, void *buf);
 void CopyI16FromBuffer(int16_t *data, void *buf);
 void CopyI32FromBuffer(int32_t *data, void *buf);
 
+void SetBitByPosition(void *ptr, uint8_t pos);
+void ClearBitByPosition(void *ptr, uint8_t pos);
+bool GetBitByPosition(void *ptr, uint8_t pos);
+
 #endif //_LOGJAM_COMMON_H_
 
 

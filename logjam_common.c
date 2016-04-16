@@ -81,3 +81,23 @@ void CopyI32FromBuffer(int32_t *data, void *buf)
     *data |= *(ptr++);    //Byte 1
 }
 
+void SetBitByPosition(void *ptr, uint8_t pos)
+{
+    uint8_t *bits = (uint8_t*) ptr;
+    
+    bits[pos/8] |= (1 << (pos % 8));
+}
+
+void ClearBitByPosition(void *ptr, uint8_t pos)
+{
+    uint8_t *bits = (uint8_t*) ptr;
+    
+    bits[pos/8] &= ~(1 << (pos % 8));    
+}
+
+bool GetBitByPosition(void *ptr, uint8_t pos)
+{
+    uint8_t *bits = (uint8_t*) ptr;
+    
+    return (bits[pos/8] & (1 << (pos % 8))) > 0
+}
