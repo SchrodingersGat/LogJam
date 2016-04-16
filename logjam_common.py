@@ -24,7 +24,6 @@ def rightShiftBits(n):
     else:
         return ' >> {n}'.format(n=int(n))
         
-        
 #generate the name for a logging bitfield struct
 def bitfieldStructName(prefix):
     return "Log{prefix}_Bitfield_t".format(prefix=prefix)

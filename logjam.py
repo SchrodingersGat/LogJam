@@ -57,6 +57,7 @@ class LogFile:
         self.createCopyDataToFunction()
         self.createCopyAllFromFunction()
         self.createCopyDataFromFunction()
+        self.getSelectionSizeFunction()
         
         self.cFile.appendLine()
         self.cFile.startComment()
@@ -121,6 +122,9 @@ class LogFile:
         
         self.hFile.appendLine(comment='Copy *selected* data back out from a buffer')
         self.hFile.appendLine(self.copyDataFromPrototype() + ';')
+        
+        self.hFile.appendLine(comment='Get the total size of the selected variables')
+        self.hFile.appendLine(self.getSelectionSizePrototype() + ';')
         
         self.hFile.appendLine()
         
@@ -590,6 +594,30 @@ class LogFile:
         self.createCaseEnumeration(blankFunction=fn)
         
         self.cFile.endSwitch()
+        
+        self.cFile.closeBrace()
+        self.cFile.appendLine()
+        
+    #function to determine the size of the selected data
+    def getSelectionSizePrototype(self):
+        return self.createFunctionPrototype('GetSelectionSize',data=False,returnType='uint16_t')
+        
+    def getSelectionSizeFunction(self):
+        self.cFile.appendLine(comment='Get the total size of the selected variables')
+        self.cFile.appendLine(self.getSelectionSizePrototype())
+        self.cFile.openBrace()
+        
+        self.cFile.appendLine('uint16_t size = 0;')
+        self.cFile.appendLine()
+        
+        for var in self.variables:
+            self.cFile.appendLine(var.checkBit('selection'))
+            self.cFile.openBrace()
+            self.cFile.appendLine('size += {n};'.format(n=var.bytes))
+            self.cFile.closeBrace()
+            
+        self.cFile.appendLine()
+        self.cFile.appendLine('return size;')
         
         self.cFile.closeBrace()
         self.cFile.appendLine()
