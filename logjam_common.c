@@ -6,17 +6,17 @@ void CopyU16ToBuffer(uint16_t data, void *buf)
     uint8_t *ptr = (uint8_t*) buf;
     
     *ptr++ = (uint8_t) (data >> 8);
-    *ptr++ = (uint8_t) data;
+    *ptr++ = (uint8_t) (data & 0xFF);
 }
 
 void CopyU32ToBuffer(uint32_t data, void *buf)
 {
     uint8_t *ptr = (uint8_t*) buf;
     
-    *ptr++ = data >> 24;
-    *ptr++ = data >> 16;
-    *ptr++ = data >> 8;
-    *ptr++ = data;
+    *ptr++ = (uint8_t) (data >> 24);
+    *ptr++ = (uint8_t) (data >> 16);
+    *ptr++ = (uint8_t) (data >> 8);
+    *ptr++ = (uint8_t) (data & 0xFF);
 }
 
 void CopyU16FromBuffer(uint16_t *data, void *buf)
@@ -46,17 +46,17 @@ void CopyI16ToBuffer(int16_t data, void *buf)
     uint8_t *ptr = (uint8_t*) buf;
     
     *ptr++ = (uint8_t) (data >> 8);
-    *ptr++ = (uint8_t) data;
+    *ptr++ = (uint8_t) (data & 0xFF);
 }
 
 void CopyI32ToBuffer(int32_t data, void *buf)
 {
     uint8_t *ptr = (uint8_t*) buf;
     
-    *ptr++ = data >> 24;
-    *ptr++ = data >> 16;
-    *ptr++ = data >> 8;
-    *ptr++ = data;
+    *ptr++ = (uint8_t) (data >> 24);
+    *ptr++ = (uint8_t) (data >> 16);
+    *ptr++ = (uint8_t) (data >> 8);
+    *ptr++ = (uint8_t) (data & 0xFF);
 }
 
 void CopyI16FromBuffer(int16_t *data, void *buf)
