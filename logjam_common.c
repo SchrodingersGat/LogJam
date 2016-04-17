@@ -64,12 +64,12 @@ void CopyU32FromBuffer(uint32_t *data, void *buf)
 
 void CopyI16ToBuffer(int16_t data, void *buf)
 {
-    CopyU16ToBuffer((uint16_t*) data, buf);
+    CopyU16ToBuffer((uint16_t) data, buf);
 }
 
 void CopyI32ToBuffer(int32_t data, void *buf)
 {
-    CopyU32ToBuffer((uint32_t*) data, buf);
+    CopyU32ToBuffer((uint32_t) data, buf);
 }
 
 void CopyI16FromBuffer(int16_t *data, void *buf)
@@ -100,5 +100,5 @@ bool GetBitByPosition(void *ptr, uint8_t pos)
 {
     uint8_t *bits = (uint8_t*) ptr;
     
-    return (bits[pos/8] & (1 << (pos % 8))) > 0
+    return (bits[pos/8] & (1 << (pos % 8))) > 0;
 }

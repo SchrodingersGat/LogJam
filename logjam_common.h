@@ -15,8 +15,8 @@ void CopyU24FromBuffer(uint32_t *data, void *buf);
 void CopyU32FromBuffer(uint32_t *data, void *buf);
 
 //Copy signed types out of buffer
-void CopyI16ToBuffer(int16_t *data, void *buf);
-void CopyI32ToBuffer(int32_t *data, void *buf);
+void CopyI16ToBuffer(int16_t data, void *buf);
+void CopyI32ToBuffer(int32_t data, void *buf);
 void CopyI16FromBuffer(int16_t *data, void *buf);
 void CopyI32FromBuffer(int32_t *data, void *buf);
 

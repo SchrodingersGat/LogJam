@@ -103,7 +103,7 @@ class LogFile:
         
         self.hFile.appendLine(comment="Struct definition for storing the selection bits of the " + self.prefix + " logging struct")
         self.hFile.appendLine(comment='This is not stored as a native c bitfield to preserve explicit ordering between processors, compilers, etc')
-        self.hFile.appendLine('typedef uint8_t[LOG_{pref}_SELECTION_BYTES] {name};'.format(pref=self.prefix.upper(),name=bitfieldStructName(self.prefix)))
+        self.hFile.appendLine('typedef uint8_t {name}[LOG_{pref}_SELECTION_BYTES];'.format(pref=self.prefix.upper(),name=bitfieldStructName(self.prefix)))
         self.hFile.appendLine()
         self.hFile.appendLine(comment="Data struct definition for the " + self.prefix + " logging struct")
         self.createDataStruct()
@@ -296,8 +296,9 @@ class LogFile:
         self.cFile.appendLine(self.resetPrototype())
         self.cFile.openBrace()
         
+        self.cFile.appendLine('uint8_t *bf = (uint8_t*) selection;')
         for i in range(bitfieldSize(len(self.variables))):
-            self.cFile.appendLine('selection[{n}] = 0; //Clear byte {x} of {y}'.format(n=i,x=i+1,y=bitfieldSize(len(self.variables))))
+            self.cFile.appendLine('bf[{n}] = 0; //Clear byte {x} of {y}'.format(n=i,x=i+1,y=bitfieldSize(len(self.variables))))
         
         self.cFile.closeBrace()
         self.cFile.appendLine()
@@ -402,7 +403,7 @@ class LogFile:
         if var.bytes == 1:
             self.cFile.appendLine('{data} = *(ptr++);'.format(data=var.getPtr('data')),comment="Copy the '{var}' variable".format(var=var.name))
         else:
-            self.cFile.appendLine('Copy{sign}{bits}FromBuffer({data},ptr);'.format(
+            self.cFile.appendLine('Copy{sign}{bits}FromBuffer(&({data}),ptr);'.format(
                             sign='I' if var.isSigned() else 'U',
                             bits=var.bytes*8,
                             data=var.getPtr('data')),
@@ -636,7 +637,7 @@ class LogVariable:
                     pos = self.getEnum())
     #code prototype to set the selection bit
     def setBit(self,struct='selection'):
-        return 'SetBitByPosition({struct},{pos})'.format(
+        return 'SetBitByPosition({struct},{pos});'.format(
                     struct=struct,
                     pos = self.getEnum())
         
