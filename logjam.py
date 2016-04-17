@@ -191,10 +191,12 @@ class LogFile:
         self.hFile.tabIn()
         
         for v in self.variables:
-            self.hFile.appendLine(comment='Variable : {name}, {units}'.format(name=v.name,units=v.units if v.units else 'no units specified'))
+            self.hFile.appendLine(comment="Variable '{name}'{units}{scaler} ({n} bytes)".format(
+                    name = v.name,
+                    units = ", units='{u}'".format(u=v.units) if v.units else '',
+                    scaler = ", scaler=1.0/{scaler}".format(scaler=v.scaler) if v.scaler > 1 else '',
+                    n = v.bytes))
             
-            if v.scaler > 1:
-                self.hFile.appendLine(comment='{name} will be scaled by 1.0/{scaler} when decoded to a log file'.format(name=v.name,scaler=v.scaler))
             self.hFile.appendLine(v.dataString())
         
         self.hFile.tabOut()
