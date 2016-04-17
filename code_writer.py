@@ -33,7 +33,7 @@ class CodeWriter:
         self.append('\n')
             
     #create a c-style enum
-    def createEnum(self, name, enums, start=0, values=None, split=None):
+    def createEnum(self, name, enums, start=0, values=None, split=None, commentFunc=None):
         
         self.appendLine(comment='{name} enumeration'.format(name=name))
         self.appendLine('typedef enum')
@@ -48,7 +48,10 @@ class CodeWriter:
             else:
                 eVal = None
                 
-            self.appendLine('{enum}{value},'.format(enum=enum,value=' = {val}'.format(val=eVal) if eVal is not None else ''))
+            self.append('{enum}{value},'.format(enum=enum,value=' = {val}'.format(val=eVal) if eVal is not None else ''))
+            
+            if commentFunc:
+                self.appendLine(comment=commentFunc(i,enum))
             
             if i > 0 and type(split) is int:
                 if (i+1) % split == 0:
