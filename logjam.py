@@ -101,6 +101,10 @@ class LogFile:
         self.hFile.define('LOG_{pref}_SELECTION_BYTES'.format(pref=self.prefix.upper()),value=bitfieldSize(len(self.variables)))
         self.hFile.appendLine()
         
+        self.hFile.appendLine(comment="Number of variables defined for the '{pref}' logging structure".format(pref=self.prefix))
+        self.hFile.define('LOG_{pref}_VARIABLE_COUNT'.format(pref=self.prefix.upper()), value=len(self.variables))
+        self.hFile.appendLine()
+        
         self.hFile.appendLine(comment="Struct definition for storing the selection bits of the " + self.prefix + " logging struct")
         self.hFile.appendLine(comment='This is not stored as a native c bitfield to preserve explicit ordering between processors, compilers, etc')
         self.hFile.appendLine('typedef uint8_t {name}[LOG_{pref}_SELECTION_BYTES];'.format(pref=self.prefix.upper(),name=bitfieldStructName(self.prefix)))
