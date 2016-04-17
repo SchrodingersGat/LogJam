@@ -52,6 +52,8 @@ class LogFile:
         self.cFile.appendLine("Global functions")
         self.cFile.finishComment()
         
+        self.cFile.appendLine()
+        
         self.createResetFunction()
         self.createCopyAllToFunction()
         self.createCopyDataToFunction()
@@ -296,7 +298,8 @@ class LogFile:
         self.cFile.appendLine(self.resetPrototype())
         self.cFile.openBrace()
         
-        self.cFile.appendLine("memset(selection,0,sizeof(" + bitfieldStructName(self.prefix) + "));")
+        for i in range(bitfieldSize(len(self.variables))):
+            self.cFile.appendLine('selection[{n}] = 0; //Clear byte {x} of {y}'.format(n=i,x=i+1,y=bitfieldSize(len(self.variables))))
         
         self.cFile.closeBrace()
         self.cFile.appendLine()
