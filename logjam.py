@@ -628,7 +628,7 @@ class LogVariable:
     #name = name of this variable
     #format = primitive datatype
     #comment = comment string
-    def __init__(self, prefix, name, format, title=name, comment=None, units=None, scaler=1.0):
+    def __init__(self, prefix, name, format, title, comment=None, units=None, scaler=1.0):
         self.prefix = prefix
         self.name = name
         self.format = self.parseFormat(format)
