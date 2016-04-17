@@ -69,7 +69,6 @@ class LogFile:
         #add in the functions to add variables
         for v in self.variables:
             self.createAdditionFunction(v)
-            self.createRemoveFunction(v)
             self.createDecodeFunction(v)
        
         self.titleByIndexFunction()
@@ -94,10 +93,15 @@ class LogFile:
 
         self.hFile.appendLine()
         #create global enumeration for the variables
-        self.hFile.createEnum('Log{pref}_Enum_t'.format(pref=self.prefix),[v.getEnum() for v in self.variables])
+        self.hFile.createEnum('Log{pref}_Enum_t'.format(pref=self.prefix),[v.getEnum() for v in self.variables],split=8)
         
-        self.hFile.appendLine(comment="Bitfield struct definition for the " + self.prefix + " logging struct")
-        self.createBitfieldStruct()
+        self.hFile.appendLine(comment='{n} bytes are required to store all parameter selction bits for {log} logging'.format(n=bitfieldSize(len(self.variables)),log=self.prefix))
+        self.hFile.define('LOG_{pref}_SELECTION_BYTES'.format(pref=self.prefix.upper()),value=bitfieldSize(len(self.variables)))
+        self.hFile.appendLine()
+        
+        self.hFile.appendLine(comment="Struct definition for storing the selection bits of the " + self.prefix + " logging struct")
+        self.hFile.appendLine(comment='This is not stored as a native c bitfield to preserve explicit ordering between processors, compilers, etc')
+        self.hFile.appendLine('typedef uint8_t[LOG_{pref}_SELECTION_BYTES] {name};'.format(pref=self.prefix.upper(),name=bitfieldStructName(self.prefix)))
         self.hFile.appendLine()
         self.hFile.appendLine(comment="Data struct definition for the " + self.prefix + " logging struct")
         self.createDataStruct()
@@ -144,7 +148,6 @@ class LogFile:
         #add in the 'addition' functions
         for var in self.variables:
             self.hFile.appendLine(self.additionPrototype(var) + '; //Add ' + var.prefix + " to the log struct")
-            self.hFile.appendLine(self.removePrototype(var) + '; //Remove ' + var.prefix + ' from the log struct')
             self.hFile.appendLine(self.decodePrototype(var) + '; //Decode ' + var.prefix + ' into a printable string')
             
         self.hFile.appendLine()
@@ -195,32 +198,6 @@ class LogFile:
         self.hFile.tabOut()
         
         self.hFile.appendLine('} ' + dataStructName(self.prefix) + ';')
-        
-    #create a bitfield struct of all variables
-    def createBitfieldStruct(self):
-    
-        self.hFile.appendLine('typedef struct {')
-        
-        self.hFile.tabIn()
-        
-        for v in self.variables:
-            self.hFile.appendLine(v.bitfieldString())
-            
-        self.hFile.tabOut()
-        
-        self.hFile.appendLine('} ' + bitfieldStructName(self.prefix) + ';')
-        
-    def removePrototype(self,var):
-        return self.createVariableFunction(var,'remove',blank=True,inline=True,data=False)
-        
-    #create a function to remove a var from the logging structure
-    def createRemoveFunction(self, var):
-        self.cFile.appendLine(comment="Remove variable {name} from the {prefix} logging structure".format(name=var.name,prefix=self.prefix))
-        self.cFile.appendLine(self.removePrototype(var))
-        self.cFile.openBrace()
-        self.cFile.appendLine(var.clearBit('selection'))
-        self.cFile.closeBrace()
-        self.cFile.appendLine()
         
     def additionPrototype(self,var):
         return self.createVariableFunction(var,'add',inline=True)
@@ -374,7 +351,7 @@ class LogFile:
         self.cFile.appendLine(comment='Check each variable in the logging struct to see if it should be added')
         
         for var in self.variables:
-            self.cFile.appendLine(var.checkBit('selection'))
+            self.cFile.appendLine('if ({test})'.format(test=var.getBit('selection')))
             self.cFile.openBrace()
             
             self.copyVarToBuffer(var, count=True)
@@ -481,7 +458,7 @@ class LogFile:
         self.cFile.appendLine(comment='Only copy across variables that have actually been stored in the buffer')
         
         for var in self.variables:
-            self.cFile.appendLine(var.checkBit('selection'))
+            self.cFile.appendLine('if ({test})'.format(test=var.getBit('selection')))
             self.cFile.openBrace()
             
             self.copyVarFromBuffer(var,count=True)
@@ -611,7 +588,7 @@ class LogFile:
         self.cFile.appendLine()
         
         for var in self.variables:
-            self.cFile.appendLine(var.checkBit('selection'))
+            self.cFile.appendLine('if ({test})'.format(test=var.getBit('selection')))
             self.cFile.openBrace()
             self.cFile.appendLine('size += {n};'.format(n=var.bytes))
             self.cFile.closeBrace()
@@ -631,6 +608,10 @@ class LogVariable:
     def __init__(self, prefix, name, format, title, comment=None, units=None, scaler=1.0):
         self.prefix = prefix
         self.name = name
+        
+        if self.name == 'data':
+            raise NameError("Logging variable cannot be called 'data'")
+        
         self.format = self.parseFormat(format)
         self.comment = "//!< " + str(comment) if comment else ""
         self.units = units
@@ -653,12 +634,6 @@ class LogVariable:
                 name = self.name,
                 comment = self.comment)
                 
-    #bitfield definition string (with comment appended)
-    def bitfieldString(self):
-        return "uint8_t {name} : 1; {comment}".format(
-                name = self.name,
-                comment = self.comment)
-                
     #wrap a given function name
     def getFunctionName(self, fnName):
         return "{fn}{name}".format(name=self.name.capitalize(), fn=fnName.capitalize())
@@ -670,25 +645,26 @@ class LogVariable:
     #assume there is always a pointer to *log
     
     #get the pointer to the data type within a given struct
-    def getPtr(self, struct):
+    def getPtr(self, struct='data'):
         return '{struct}->{name}'.format(struct=struct,name=self.name)
     
     #check if a bit is set
     #returns a string of the format 'if (bits->name)'
-    def checkBit(self,struct='bits'):
-        return 'if ({bit})'.format(bit=self.getPtr(struct))
-        
-    #check if a bit is not set
-    def checkNotBit(self,struct='bits'):
-        return 'if ({bit} == 0)'.format(bit=self.getPtr(struct))
-        
+    def getBit(self,struct='selection'):
+        return 'GetBitByPosition({struct},{pos})'.format(
+                    struct=struct,
+                    pos = self.getEnum())
     #code prototype to set the selection bit
-    def setBit(self,struct='bits'):
-        return '{bit} = 1; //Set the {name} bit'.format(bit=self.getPtr(struct), name=self.name)
+    def setBit(self,struct='selection'):
+        return 'SetBitByPosition({struct},{pos})'.format(
+                    struct=struct,
+                    pos = self.getEnum())
         
     #code prototype to clear the selection bit
-    def clearBit(self,struct='bits'):
-        return '{bit} = 0; //Clear the {name} bit'.format(bit=self.getPtr(struct), name=self.name)
+    def clearBit(self,struct='selection'):
+        return 'ClearBitByPosition({struct},{pos})'.format(
+                    struct=struct,
+                    pos = self.getEnum())
         
     def getSize(self, struct):
         return 'sizeof({struct}->{name})'.format(struct=struct,name=self.name)
