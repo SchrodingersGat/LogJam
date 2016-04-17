@@ -27,10 +27,11 @@ class CodeWriter:
             self.append(text,ignoreTabs)
         if comment:
             if text:
+                ignoreTabs=True
                 self.append(' ',ignoreTabs) #add a space after the text
             self.append('//' + comment,ignoreTabs)
             
-        self.append('\n')
+        self.append('\n',ignoreTabs=True)
             
     #create a c-style enum
     def createEnum(self, name, enums, start=0, values=None, split=None, commentFunc=None):

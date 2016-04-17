@@ -336,7 +336,7 @@ class LogFile:
         self.cFile.appendLine(comment="Copy across data whose selection bit is set in the provided bitfield")
         self.cFile.appendLine(comment="Only data selected will be copied (in sequence)")
         self.cFile.appendLine(comment="Ensure a copy of the selection bits is stored for decoding")
-        self.cFile.appendLine(self.copySelectedPrototype());
+        self.cFile.appendLine(self.copySelectedPrototype())
         self.cFile.openBrace()
         self.cFile.appendLine('uint8_t *ptr = (uint8_t*) dest; //Pointer for keeping track of data addressing')
         self.cFile.appendLine('uint8_t *bf = (uint8_t*) selection; //Pointer for keeping track of the bitfield')
@@ -385,16 +385,20 @@ class LogFile:
     
         #single byte, just copy across
         if var.bytes == 1: 
-            self.cFile.appendLine('*(ptr++) = {data};'.format(data=var.getPtr('data')),comment='Single byte copy')
+            self.cFile.appendLine('*(ptr++) = {data};'.format(data=var.getPtr('data')),comment="Copy the '{var}' variable".format(var=var.name))
         else:
-            self.cFile.appendLine('Copy{sign}{bits}ToBuffer({data},ptr)'.format(
+            self.cFile.appendLine('Copy{sign}{bits}ToBuffer({data},ptr);'.format(
                             sign='I' if var.isSigned() else 'U',
                             bits=var.bytes*8,
-                            data=var.getPtr('data')))
+                            data=var.getPtr('data')),
+                            comment= "Copy the '{var}' variable ({n} bytes)".format(var=var.name,n=var.bytes))
             self.cFile.appendLine('ptr += {size};'.format(size=var.bytes))
+            
             
         if count:
             self.cFile.appendLine('count += {size};'.format(size=var.bytes))
+
+        self.cFile.appendLine()
             
     def copyVarFromBuffer(self, var, count=False):
     
@@ -664,9 +668,6 @@ class LogVariable:
         return 'ClearBitByPosition({struct},{pos})'.format(
                     struct=struct,
                     pos = self.getEnum())
-        
-    def getSize(self, struct):
-        return 'sizeof({struct}->{name})'.format(struct=struct,name=self.name)
         
     #add the variable to the struct
     def addVariable(self, struct):
