@@ -48,7 +48,7 @@ class CodeWriter:
             else:
                 eVal = None
                 
-            self.appendLine('{enum}{value},'.format(enum=enum,value=' = eVal' if eVal else ''))
+            self.appendLine('{enum}{value},'.format(enum=enum,value=' = {val}'.format(val=eVal) if eVal is not None else ''))
             
         self.tabOut()
         self.appendLine('}} {name};'.format(name=name))
