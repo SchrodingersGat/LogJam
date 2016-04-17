@@ -93,7 +93,8 @@ class LogFile:
 
         self.hFile.appendLine()
         #create global enumeration for the variables
-        self.hFile.createEnum('Log{pref}_Enum_t'.format(pref=self.prefix),[v.getEnum() for v in self.variables],split=8)
+        fn = lambda i,val: "{val} is stored in byte {n}, position {m}".format(val=val,n=int(int(i)/8),m=i%8)
+        self.hFile.createEnum('Log{pref}_Enum_t'.format(pref=self.prefix),[v.getEnum() for v in self.variables],split=8,commentFunc=fn)
         
         self.hFile.appendLine(comment='{n} bytes are required to store all parameter selction bits for {log} logging'.format(n=bitfieldSize(len(self.variables)),log=self.prefix))
         self.hFile.define('LOG_{pref}_SELECTION_BYTES'.format(pref=self.prefix.upper()),value=bitfieldSize(len(self.variables)))

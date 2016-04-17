@@ -15,20 +15,20 @@ class CodeWriter:
             self.tabs -= 1
             
     #append raw text
-    def append(self, text):
-        self.text = self.text + '\t' * self.tabs
+    def append(self, text, ignoreTabs=False):
+        self.text = self.text + '\t' * (0 if ignoreTabs else self.tabs)
         if self.comment:
             self.text += '* '
         self.text += text
         
     #append a line (enforce newline chracter)
-    def appendLine(self, text=None, comment=None):
+    def appendLine(self, text=None, comment=None, ignoreTabs=False):
         if text:
-            self.append(text)
+            self.append(text,ignoreTabs)
         if comment:
             if text:
-                self.append(' ') #add a space after the text
-            self.append('//' + comment)
+                self.append(' ',ignoreTabs) #add a space after the text
+            self.append('//' + comment,ignoreTabs)
             
         self.append('\n')
             
@@ -51,7 +51,7 @@ class CodeWriter:
             self.append('{enum}{value},'.format(enum=enum,value=' = {val}'.format(val=eVal) if eVal is not None else ''))
             
             if commentFunc:
-                self.appendLine(comment=commentFunc(i,enum))
+                self.appendLine('\t',comment=commentFunc(i,enum), ignoreTabs=True)
             
             if i > 0 and type(split) is int:
                 if (i+1) % split == 0:
