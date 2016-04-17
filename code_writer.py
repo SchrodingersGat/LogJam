@@ -17,12 +17,12 @@ class CodeWriter:
     #append raw text
     def append(self, text, ignoreTabs=False):
         self.text = self.text + '\t' * (0 if ignoreTabs else self.tabs)
-        if self.comment:
-            self.text += '* '
         self.text += text
         
     #append a line (enforce newline chracter)
     def appendLine(self, text=None, comment=None, ignoreTabs=False):
+        if self.comment:
+            self.text += '* '
         if text:
             self.append(text,ignoreTabs)
         if comment:
