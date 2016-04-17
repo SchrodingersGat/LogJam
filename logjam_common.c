@@ -9,6 +9,16 @@ void CopyU16ToBuffer(uint16_t data, void *buf)
     *ptr++ = (uint8_t) (data & 0xFF);
 }
 
+void CopyU24ToBuffer(uint32_t data, void *buf)
+{
+    uint8_t *ptr = (uint8_t*) buf;
+    
+    *ptr++ = (uint8_t) (data >> 24);
+    *ptr++ = (uint8_t) (data >> 16);
+    *ptr++ = (uint8_t) (data >> 8);
+    
+}
+
 void CopyU32ToBuffer(uint32_t data, void *buf)
 {
     uint8_t *ptr = (uint8_t*) buf;
@@ -28,6 +38,17 @@ void CopyU16FromBuffer(uint16_t *data, void *buf)
     *data |= *(ptr++);      //Byte 1
 }
 
+void CopyU24FromBuffer(uint32_t *data, void *buf)
+{
+    uint8_t *ptr = (uint8_t*) buf;
+    
+    *data  = *(ptr++);    //Byte 3
+    *data <<= 8;
+    *data |= *(ptr++);    //Byte 2
+    *data <<= 8;
+    *data |= *(ptr++);    //Byte 1
+}
+
 void CopyU32FromBuffer(uint32_t *data, void *buf)
 {
     uint8_t *ptr = (uint8_t*) buf;
@@ -43,42 +64,22 @@ void CopyU32FromBuffer(uint32_t *data, void *buf)
 
 void CopyI16ToBuffer(int16_t data, void *buf)
 {
-    uint8_t *ptr = (uint8_t*) buf;
-    
-    *ptr++ = (uint8_t) (data >> 8);
-    *ptr++ = (uint8_t) (data & 0xFF);
+    CopyU16ToBuffer((uint16_t*) data, buf);
 }
 
 void CopyI32ToBuffer(int32_t data, void *buf)
 {
-    uint8_t *ptr = (uint8_t*) buf;
-    
-    *ptr++ = (uint8_t) (data >> 24);
-    *ptr++ = (uint8_t) (data >> 16);
-    *ptr++ = (uint8_t) (data >> 8);
-    *ptr++ = (uint8_t) (data & 0xFF);
+    CopyU32ToBuffer((uint32_t*) data, buf);
 }
 
 void CopyI16FromBuffer(int16_t *data, void *buf)
 {
-    uint8_t *ptr = (uint8_t*) buf;
-    
-    *data  = *(ptr++);      //Byte 2
-    *data <<= 8;
-    *data |= *(ptr++);      //Byte 1    
+    CopyU16FromBuffer((uint16_t*) data, buf);
 }
 
 void CopyI32FromBuffer(int32_t *data, void *buf)
 {
-    uint8_t *ptr = (uint8_t*) buf;
-    
-    *data  = *(ptr++);    //Byte 4
-    *data <<= 8;
-    *data |= *(ptr++);    //Byte 3
-    *data <<= 8;
-    *data |= *(ptr++);    //Byte 2
-    *data <<= 8;
-    *data |= *(ptr++);    //Byte 1
+    CopyU32FromBuffer((uint32_t*) data, buf);
 }
 
 void SetBitByPosition(void *ptr, uint8_t pos)

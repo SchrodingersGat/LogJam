@@ -6,13 +6,17 @@
 #include <stdio.h>
 #include <string.h>
 
+//Copy unsigned data types to/from buffer 
 void CopyU16ToBuffer(uint16_t data, void *buf);
+void CopyU24ToBuffer(uint32_t data, void *buf);
 void CopyU32ToBuffer(uint32_t data, void *buf);
 void CopyU16FromBuffer(uint16_t *data, void *buf);
+void CopyU24FromBuffer(uint32_t *data, void *buf);
 void CopyU32FromBuffer(uint32_t *data, void *buf);
 
-void CopyI16ToBuffer(int16_t data, void *buf);
-void CopyI32ToBuffer(int32_t data, void *buf);
+//Copy signed types out of buffer
+void CopyI16ToBuffer(int16_t *data, void *buf);
+void CopyI32ToBuffer(int32_t *data, void *buf);
 void CopyI16FromBuffer(int16_t *data, void *buf);
 void CopyI32FromBuffer(int32_t *data, void *buf);
 
