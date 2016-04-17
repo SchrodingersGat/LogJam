@@ -108,6 +108,12 @@ class LogFile:
         self.hFile.appendLine(comment="Data struct definition for the " + self.prefix + " logging struct")
         self.createDataStruct()
         
+        #total data size
+        d_size = sum([v.bytes for v in self.variables])
+        self.hFile.appendLine()
+        self.hFile.appendLine(comment='{n} bytes are required to store all the data parameters'.format(n=d_size))
+        self.hFile.define('LOG_{pref}_DATA_BYTES'.format(pref=self.prefix.upper()),value=d_size)
+        
         self.hFile.appendLine()
         
         self.hFile.startComment()
