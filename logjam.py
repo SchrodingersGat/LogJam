@@ -75,7 +75,6 @@ class LogFile:
        
         self.titleByIndexFunction()
         self.unitsByIndexFunction()
-        self.bitByIndexFunction()
         self.valueByIndexFunction()
        
     def constructHeaderFile(self):
@@ -138,7 +137,6 @@ class LogFile:
         self.hFile.appendLine(comment="Functions for getting variable information based on the index");
         self.hFile.appendLine(self.titleByIndexPrototype()+';')
         self.hFile.appendLine(self.unitsByIndexPrototype()+';')
-        self.hFile.appendLine(self.bitByIndexPrototype() + ';')
         self.hFile.appendLine(self.valueByIndexPrototype() + ';')
         
         self.hFile.appendLine()
@@ -324,6 +322,7 @@ class LogFile:
         
         for var in self.variables:
             self.copyVarToBuffer(var)
+            self.cFile.appendLine()
         
         self.cFile.closeBrace()
         self.cFile.appendLine()
@@ -397,18 +396,17 @@ class LogFile:
             
         if count:
             self.cFile.appendLine('count += {size};'.format(size=var.bytes))
-
-        self.cFile.appendLine()
             
     def copyVarFromBuffer(self, var, count=False):
     
         if var.bytes == 1:
-            self.cFile.appendLine('{data} = *(ptr++);'.format(data=var.getPtr('data')),comment='Single byte copy')
+            self.cFile.appendLine('{data} = *(ptr++);'.format(data=var.getPtr('data')),comment="Copy the '{var}' variable".format(var=var.name))
         else:
-            self.cFile.appendLine('Copy{sign}{bits}FromBuffer({data},ptr)'.format(
+            self.cFile.appendLine('Copy{sign}{bits}FromBuffer({data},ptr);'.format(
                             sign='I' if var.isSigned() else 'U',
                             bits=var.bytes*8,
-                            data=var.getPtr('data')))
+                            data=var.getPtr('data')),
+                            comment="Copy the '{var}' variable ({n} bytes)".format(var=var.name,n=var.bytes))
             self.cFile.appendLine('ptr += {size};'.format(size=var.bytes))
                 
         if count:
@@ -435,6 +433,7 @@ class LogFile:
         
         for var in self.variables:
             self.copyVarFromBuffer(var)
+            self.cFile.appendLine()
         
         self.cFile.closeBrace()
         self.cFile.appendLine()
@@ -536,29 +535,7 @@ class LogFile:
         
         self.cFile.closeBrace()
         self.cFile.appendLine()
-        
-    def bitByIndexPrototype(self):
-        return self.createFunctionPrototype('GetBitByIndex',data=False,returnType='bool',extra=[('index','uint8_t')])
-        
-    def bitByIndexFunction(self):
-        self.cFile.appendLine(comment='Check a selection bit based on its enumerated value')
-        self.cFile.appendLine(self.bitByIndexPrototype())
-        self.cFile.openBrace()
-        
-        self.cFile.startSwitch('index')
-        
-        fn = lambda var: 'selection->{name} == 1'.format(name=var.name)
-        
-        self.createCaseEnumeration(returnFunction = fn)
-        
-        self.cFile.endSwitch()
-        
-        self.cFile.appendLine(comment="Default return value")
-        self.cFile.appendLine("return false;");
-        
-        self.cFile.closeBrace()
-        self.cFile.appendLine()
-        
+         
     def valueByIndexPrototype(self):
         return self.createFunctionPrototype('GetValueByIndex',bits=False,extra=[('index','uint8_t'), ('*str','char')])
         
