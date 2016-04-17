@@ -148,13 +148,8 @@ class LogFile:
         
         #add in the 'addition' functions
         for var in self.variables:
-            self.hFile.appendLine(self.additionPrototype(var) + '; //Add ' + var.prefix + " to the log struct")
-            self.hFile.appendLine(self.decodePrototype(var) + '; //Decode ' + var.prefix + ' into a printable string')
-            
-        self.hFile.appendLine()
-        self.hFile.appendLine(comment='Title and Unit string functions for all variables')
-        #defines for extracting title and unit information
-        for var in self.variables:
+            self.hFile.appendLine()
+            self.hFile.appendLine(comment="Functions for the '{name}' variable".format(name=var.name))
             self.hFile.define('Log{prefix}_{name}Title() {title}'.format(
                 prefix=self.prefix,
                 name=var.name,
@@ -166,8 +161,8 @@ class LogFile:
                 name=var.name,
                 units=var.getUnitsString()),
                 comment='Units string for {var} variable'.format(var=var.name))
-                
-            self.hFile.appendLine()
+            self.hFile.appendLine(self.additionPrototype(var) + '; //Add ' + var.prefix + " to the log struct")
+            self.hFile.appendLine(self.decodePrototype(var) + '; //Decode ' + var.prefix + ' into a printable string')
         
         self.hFile.appendLine()
         self.hFile.externExit()
