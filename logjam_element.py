@@ -26,6 +26,9 @@ class LogElement:
         
         self.comment = attr.get('comment',None)
         
+        #a custom 'enum value' can be set (if not None)
+        self.enum = attr.get('enum',None)
+        
     def getEnumString(self):
         return "LOG_{pref}_{type}_{name}".format(pref=self.prefix.upper(),type=self.elementType.upper(),name=camel2define(self.name))
         
@@ -72,7 +75,7 @@ class LogVariable(LogElement):
         
     #datatype definition string (with comment appended)
     def dataString(self):
-        return "{datatype} {name}; {comment}".format(
+        return "{datatype} {name}; //{comment}".format(
                 datatype = self.format,
                 name = self.name,
                 comment = self.comment)
@@ -103,5 +106,12 @@ class LogEvent(LogElement):
         LogElement.__init__(self, prefix, xmlTag)
         
         self.elementType = 'evt'
+        
+        self.variables = []
+        
+        #add in any 'data' associated with this event
+        for child in xmlTag:
+            if child.tag == 'Variable':
+                self.variables.append(LogVariable(prefix,child))
         
         
