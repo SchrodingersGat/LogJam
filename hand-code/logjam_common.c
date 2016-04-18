@@ -1,85 +1,73 @@
 
 #include "logjam_common.h" //LogJam common function
 
-void CopyU16ToBuffer(uint16_t data, void *buf)
+//Copy an uint16_t to a pointer, and auto-increment the pointer
+void CopyU16ToBuffer(uint16_t data, uint8_t **ptr)
 {
-    uint8_t *ptr = (uint8_t*) buf;
-    
-    *ptr++ = (uint8_t) (data >> 8);
-    *ptr++ = (uint8_t) (data & 0xFF);
+    *(*ptr)++ = (uint8_t) (data >> 8);
+    *(*ptr)++ = (uint8_t) (data & 0xFF);
 }
 
-void CopyU24ToBuffer(uint32_t data, void *buf)
+void CopyU24ToBuffer(uint32_t data, uint8_t **ptr)
 {
-    uint8_t *ptr = (uint8_t*) buf;
-    
-    *ptr++ = (uint8_t) (data >> 24);
-    *ptr++ = (uint8_t) (data >> 16);
-    *ptr++ = (uint8_t) (data >> 8);
-    
+    *(*ptr)++ = (uint8_t) (data >> 16);
+    *(*ptr)++ = (uint8_t) (data >> 8);
+    *(*ptr)++ = (uint8_t) (data & 0xFF);
 }
 
-void CopyU32ToBuffer(uint32_t data, void *buf)
+void CopyU32ToBuffer(uint32_t data, uint8_t **ptr)
 {
-    uint8_t *ptr = (uint8_t*) buf;
-    
-    *ptr++ = (uint8_t) (data >> 24);
-    *ptr++ = (uint8_t) (data >> 16);
-    *ptr++ = (uint8_t) (data >> 8);
-    *ptr++ = (uint8_t) (data & 0xFF);
+    *(*ptr)++ = (uint8_t) (data >> 24);
+    *(*ptr)++ = (uint8_t) (data >> 16);
+    *(*ptr)++ = (uint8_t) (data >> 8);
+    *(*ptr)++ = (uint8_t) (data & 0xFF);
 }
 
-void CopyU16FromBuffer(uint16_t *data, void *buf)
+void CopyU16FromBuffer(uint16_t *data, uint8_t **ptr)
 {
-    uint8_t *ptr = (uint8_t*) buf;
-    
-    *data  = *(ptr++);      //Byte 2
+    *data  = *(*ptr)++;      //Byte 2
     *data <<= 8;
-    *data |= *(ptr++);      //Byte 1
+    *data |= *(*ptr)++;      //Byte 1
 }
 
-void CopyU24FromBuffer(uint32_t *data, void *buf)
+void CopyU24FromBuffer(uint32_t *data, uint8_t **ptr)
 {
-    uint8_t *ptr = (uint8_t*) buf;
-    
-    *data  = *(ptr++);    //Byte 3
+    *data  = *(*ptr)++;    //Byte 3
     *data <<= 8;
-    *data |= *(ptr++);    //Byte 2
+    *data |= *(*ptr)++;    //Byte 2
     *data <<= 8;
-    *data |= *(ptr++);    //Byte 1
+    *data |= *(*ptr)++;    //Byte 1
 }
 
-void CopyU32FromBuffer(uint32_t *data, void *buf)
-{
-    uint8_t *ptr = (uint8_t*) buf;
-    
-    *data  = *(ptr++);    //Byte 4
+void CopyU32FromBuffer(uint32_t *data, uint8_t **ptr)
+{   
+    *data  = *(*ptr)++;    //Byte 4
     *data <<= 8;
-    *data |= *(ptr++);    //Byte 3
+    *data |= *(*ptr)++;    //Byte 3
     *data <<= 8;
-    *data |= *(ptr++);    //Byte 2
+    *data |= *(*ptr)++;    //Byte 2
     *data <<= 8;
-    *data |= *(ptr++);    //Byte 1
+    *data |= *(*ptr)++;    //Byte 1
 }
 
-void CopyI16ToBuffer(int16_t data, void *buf)
+void CopyI16ToBuffer(int16_t data, uint8_t **ptr)
 {
-    CopyU16ToBuffer((uint16_t) data, buf);
+    CopyU16ToBuffer((uint16_t) data, ptr);
 }
 
-void CopyI32ToBuffer(int32_t data, void *buf)
+void CopyI32ToBuffer(int32_t data, uint8_t **ptr)
 {
-    CopyU32ToBuffer((uint32_t) data, buf);
+    CopyU32ToBuffer((uint32_t) data, ptr);
 }
 
-void CopyI16FromBuffer(int16_t *data, void *buf)
+void CopyI16FromBuffer(int16_t *data, uint8_t **ptr)
 {
-    CopyU16FromBuffer((uint16_t*) data, buf);
+    CopyU16FromBuffer((uint16_t*) data, ptr);
 }
 
-void CopyI32FromBuffer(int32_t *data, void *buf)
+void CopyI32FromBuffer(int32_t *data, uint8_t **ptr)
 {
-    CopyU32FromBuffer((uint32_t*) data, buf);
+    CopyU32FromBuffer((uint32_t*) data, ptr);
 }
 
 void SetBitByPosition(void *ptr, uint8_t pos)
