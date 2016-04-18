@@ -4,7 +4,7 @@ import shutil
 
 import re
 
-from logjam import LogVariable, LogFile
+from logjam import LogVariable, LogFile, LogEvent
 from logjam_version import LOGJAM_VERSION
 
 print("Running LogJam version {v}\n".format(v=LOGJAM_VERSION))
@@ -101,7 +101,10 @@ with open(xml_file, 'rt') as xml:
         
             variables.append(LogVariable(prefix,node))
             
-    lf = LogFile(variables, prefix, version, os.path.basename(xml_file), outputdir=outputdir)
+        elif node.tag == 'Event':
+            events.append(LogEvent(prefix, node))
+            
+    lf = LogFile(prefix, version, os.path.basename(xml_file), vars=variables, events=events, outputdir=outputdir)
     
     lf.saveFiles()
     

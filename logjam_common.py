@@ -6,6 +6,16 @@ from math import ceil
 from code_writer import CodeWriter
 from logjam_version import AutogenString
 
+#convert a 'camelCase' string to a 'CAMEL_CASE' string
+def camel2define(string):
+    r1 = re.compile('(.)([A-Z][a-z]+)')
+    r2 = re.compile('([a-z0-9])([A-Z])')
+    
+    s1 = r1.sub(r'\1_\2',string);
+    s2 = r2.sub(r'\1_\2',s1)
+    
+    return s2.upper()
+
 def leftShiftBytes(n):
     return leftShiftBits(n*8)
 

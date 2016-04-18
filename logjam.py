@@ -9,11 +9,20 @@ from logjam_version import LOGJAM_VERSION, AutogenString
 
 from logjam_common import *
 
-from logjam_variable import LogVariable
+from logjam_element import LogVariable, LogEvent
     
 class LogFile:
-    def __init__(self, vars, prefix, version, sourceFile, outputdir=None):
+    def __init__(self, prefix, version, sourceFile, vars=None, events=None, outputdir=None):
+        
+        if not vars:
+            vars = []
+        
+        if not events:
+            events = []
+        
         self.variables = vars
+        self.events = events
+        
         self.prefix = prefix
         self.version = version
         self.source = sourceFile
@@ -93,11 +102,21 @@ class LogFile:
         self.hFile.appendLine()
         
         self.hFile.externEntry()
+        
+        #version information
+        self.hFile.appendLine()
+        self.hFile.appendLine(comment='{pre} logging version'.format(pre=self.prefix))
+        self.hFile.define('LOG_{pref}_VERSION()'.format(pref=self.prefix),value='"{v}"'.format(v=self.version))
+        
+        vMaj, vMin = self.version.split('.')
+        
+        self.hFile.define('LOG_{pref}_VERSION_MAJOR'.format(pref=self.prefix),value=vMaj)
+        self.hFile.define('LOG_{pref}_VERSION_MINOR'.format(pref=self.prefix),value=vMin)
 
         self.hFile.appendLine()
         #create global enumeration for the variables
         fn = lambda i,val: "{val} is stored in byte {n}, position {m}".format(val=val,n=int(int(i)/8),m=i%8)
-        self.hFile.createEnum('Log{pref}_Enum_t'.format(pref=self.prefix),[v.getEnum() for v in self.variables],split=8,commentFunc=fn)
+        self.hFile.createEnum('Log{pref}_VariableEnum_t'.format(pref=self.prefix),[v.getEnumString() for v in self.variables],split=8,commentFunc=fn)
         
         self.hFile.appendLine(comment='{n} bytes are required to store all parameter selction bits for {log} logging'.format(n=bitfieldSize(len(self.variables)),log=self.prefix))
         self.hFile.define('LOG_{pref}_SELECTION_BYTES'.format(pref=self.prefix.upper()),value=bitfieldSize(len(self.variables)))
@@ -120,6 +139,13 @@ class LogFile:
         self.hFile.appendLine(comment='{n} bytes are required to store all the data parameters'.format(n=d_size))
         self.hFile.define('LOG_{pref}_DATA_BYTES'.format(pref=self.prefix.upper()),value=d_size)
         
+        self.hFile.appendLine()
+        
+        #events
+        if len(self.events) > 0:
+            self.hFile.appendLine(comment='Logging event definitions for the {the}'.format(the=self.prefix))
+            self.hFile.createEnum('Log{pref}_EventEnum_t'.format(pref=self.prefix),[e.getEnumString() for e in self.events],start="0x80")
+            
         self.hFile.appendLine()
         
         self.hFile.startComment()
@@ -493,7 +519,7 @@ class LogFile:
     def createCaseEnumeration(self, blankFunction=None, returnFunction=None):
         
         for var in self.variables:
-            self.cFile.addCase(var.getEnum())
+            self.cFile.addCase(var.getEnumString())
             
             if blankFunction:
                 blank = blankFunction(var)

@@ -53,6 +53,8 @@ class CodeWriter:
             
             if commentFunc:
                 self.appendLine('\t',comment=commentFunc(i,enum), ignoreTabs=True)
+            else:
+                self.appendLine()
             
             if i > 0 and type(split) is int:
                 if (i+1) % split == 0:
