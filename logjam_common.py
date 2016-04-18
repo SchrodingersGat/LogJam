@@ -80,6 +80,9 @@ def stringToCPrimitive(string):
     if not len(res.groups()) == 1:
         raise ValueError("{s} is not of correct format".format())
         
+    if not s.endswith("_t"):
+        s += "_t"
+        
     return s
     
     

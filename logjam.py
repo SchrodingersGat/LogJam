@@ -144,6 +144,7 @@ class LogFile:
         #events
         if len(self.events) > 0:
             self.hFile.appendLine(comment='Logging event definitions for the {the}'.format(the=self.prefix))
+            self.hFile.appendLine(comment='Enumeration starts at 0x80 as *generic* events are 0x00 -> 0x7F')
             self.hFile.createEnum('Log{pref}_EventEnum_t'.format(pref=self.prefix),[e.getEnumString() for e in self.events],start="0x80")
             
         self.hFile.appendLine()
