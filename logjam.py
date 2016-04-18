@@ -447,7 +447,7 @@ class LogFile:
     
         #single byte, just copy across
         if var.bytes == 1: 
-            self.cFile.appendLine('*(ptr++) = {data};'.format(data=var.getPtr('data')),comment="Copy the '{var}' variable".format(var=var.name))
+            self.cFile.appendLine('*(ptr++) = {data};'.format(data=var.getPtr('data')),comment="Copy the '{var}' variable (1 byte)".format(var=var.name))
         else:
             self.cFile.appendLine('Copy{sign}{bits}ToBuffer({data},&ptr);'.format(
                             sign='I' if var.isSigned() else 'U',
@@ -461,7 +461,7 @@ class LogFile:
     def copyVarFromBuffer(self, var, count=False):
     
         if var.bytes == 1:
-            self.cFile.appendLine('{data} = *(ptr++);'.format(data=var.getPtr('data')),comment="Copy the '{var}' variable".format(var=var.name))
+            self.cFile.appendLine('{data} = *(ptr++);'.format(data=var.getPtr('data')),comment="Copy the '{var}' variable (1 byte)".format(var=var.name))
         else:
             self.cFile.appendLine('Copy{sign}{bits}FromBuffer(&({data}),&ptr);'.format(
                             sign='I' if var.isSigned() else 'U',
