@@ -5,8 +5,9 @@ import shutil
 import re
 
 from logjam import LogVariable, LogFile
+from logjam_version import LOGJAM_VERSION
 
-print("Here:",os.getcwd())
+print("Running LogJam version {v}\n".format(v=LOGJAM_VERSION))
 
 def thisFolder():
     #python script is argument 0
@@ -29,8 +30,6 @@ def say(*arg):
 def close(*arg):
     say(*arg)
     sys.exit(0)
-
-say(sys.argv)
     
 #get an xml file
 if len(sys.argv) < 2 or not sys.argv[1].endswith(".xml"):
@@ -58,6 +57,7 @@ if not outputdir:
 else:
     say('Writing files to',outputdir)
 
+say("")
         
 with open(xml_file, 'rt') as xml:
     tree = ElementTree.parse(xml)
@@ -91,26 +91,30 @@ with open(xml_file, 'rt') as xml:
         close("Version number incorrect format -",version)
     
     variables = []
+    triggers = []
+    events = []
     
     #extract the children
     for node in root:
         a = node.attrib
         
-        name = a.get('name',None)
-        datatype = a.get('type',None)
-        comment = a.get('comment',None)
-        units = a.get('units',None)
-        scaler = float(a.get('scaler',1))
-        title = a.get('title',name)
-        
-        if not name:
-            print('Name missing for', a)
-            continue
-        if not datatype:
-            print('Type missing for', a)
-            continue
+        if node.tag == 'Variable':
             
-        variables.append(LogVariable(prefix,name,datatype,title,comment,units=units, scaler=scaler))
+            name = a.get('name',None)
+            datatype = a.get('type',None)
+            comment = a.get('comment',None)
+            units = a.get('units',None)
+            scaler = float(a.get('scaler',1))
+            title = a.get('title',name)
+            
+            if not name:
+                print('Name missing for', a)
+                continue
+            if not datatype:
+                print('Type missing for', a)
+                continue
+                
+            variables.append(LogVariable(prefix,name,datatype,title,comment,units=units, scaler=scaler))
         
     lf = LogFile(variables, prefix, version, os.path.basename(xml_file), outputdir=outputdir)
     

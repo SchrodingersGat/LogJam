@@ -2,6 +2,7 @@ import re, os
 import time
 from math import ceil
 
+
 from code_writer import CodeWriter
 from logjam_version import AutogenString
 
@@ -49,6 +50,28 @@ def extractNumBytesFromVarType(t):
     result = re.match('u*int(\d*)',t)
     
     return int(int(result.groups()[0])/8)
+    
+#convert a string to a valid c-primitive
+#input something like "unsigned8" "unsigned_8" "signed 16" "uint16_t"
+def stringToCPrimitive(string):
+    s = string #copy
+    s = s.strip()
+    remove = ["_t","_"," "]
+    for r in remove:
+        s = s.replace(r,"")
+    
+    s = s.replace("unsigned","uint")
+    s = s.replace("signed","int")
+    
+    #should now be of the format (u)int<n>
+    #search for the num
+    res = re.match('u*int(\d*)',s)
+    
+    if not len(res.groups()) == 1:
+        raise ValueError("{s} is not of correct format".format())
+        
+    return s
+    
     
 LOGJAM_HEADER_NAME = "logjam_common"
 LOGJAM_DEFINE_NAME = "_LOGJAM_COMMON_H_"
