@@ -32,7 +32,6 @@ class LogElement:
     def getEnumString(self):
         return "LOG_{pref}_{type}_{name}".format(pref=self.prefix.upper(),type=self.elementType.upper(),name=camel2define(self.name))
         
-            
     def getTitleString(self):
         return '"{name}"'.format(name=self.title)
     
@@ -113,5 +112,14 @@ class LogEvent(LogElement):
         for child in xmlTag:
             if child.tag == 'Variable':
                 self.variables.append(LogVariable(prefix,child))
+                
+    def eventPrototype(self, pointer='ptr', define=True):
+        args = ['uint8_t **{ptr}'.format(ptr=pointer)]
+        
+        for v in self.variables:
+            args.append('{type}{name}'.format(type=v.format+' ' if define else '',name=v.name))
+            
+        return 'Log{pref}_Event_{name}({args})'.format(pref=self.prefix,name=self.name,args=', '.join(args))
+                
         
         

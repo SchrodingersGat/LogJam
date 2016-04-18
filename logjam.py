@@ -87,6 +87,12 @@ class LogFile:
         self.titleByIndexFunction()
         self.unitsByIndexFunction()
         self.valueByIndexFunction()
+        
+        self.cFile.appendLine()
+        self.cFile.appendLine(comment='Functions to copy *events* to/from a buffer')
+        
+        for e in self.events:
+            self.addEventCopyFuncs(e)
        
     def constructHeaderFile(self):
         
@@ -148,6 +154,12 @@ class LogFile:
             self.hFile.createEnum('Log{pref}_EventEnum_t'.format(pref=self.prefix),[e.getEnumString() for e in self.events],start="0x80")
             
         self.hFile.appendLine()
+        
+        self.hFile.appendLine(comment='Functions to copy various log events to logging buffer')
+        self.hFile.appendLine(comment='Each function returns the number of bytes written to the log')   
+        #functions for the events
+        for e in self.events:
+            self.hFile.appendLine('inline void {func};'.format(func=e.eventPrototype()))
         
         self.hFile.startComment()
         self.hFile.appendLine("Global Functions:")
@@ -215,6 +227,15 @@ class LogFile:
         
         self.hFile.writeToFile()
         self.cFile.writeToFile() 
+        
+    def addEventCopyFuncs(self, e):
+        #copy TO buffer
+        self.cFile.appendLine('inline void {func}'.format(func=e.eventPrototype(define=False)))
+        self.cFile.openBrace()
+        
+        self.cFile.closeBrace()
+        
+        self.cFile.appendLine()
         
     #create the struct of the variables
     def createDataStruct(self):
@@ -428,13 +449,11 @@ class LogFile:
         if var.bytes == 1: 
             self.cFile.appendLine('*(ptr++) = {data};'.format(data=var.getPtr('data')),comment="Copy the '{var}' variable".format(var=var.name))
         else:
-            self.cFile.appendLine('Copy{sign}{bits}ToBuffer({data},ptr);'.format(
+            self.cFile.appendLine('Copy{sign}{bits}ToBuffer({data},&ptr);'.format(
                             sign='I' if var.isSigned() else 'U',
                             bits=var.bytes*8,
                             data=var.getPtr('data')),
-                            comment= "Copy the '{var}' variable ({n} bytes)".format(var=var.name,n=var.bytes))
-            self.cFile.appendLine('ptr += {size};'.format(size=var.bytes))
-            
+                            comment= "Copy the '{var}' variable ({n} bytes)".format(var=var.name,n=var.bytes))            
             
         if count:
             self.cFile.appendLine('count += {size};'.format(size=var.bytes))
@@ -444,12 +463,11 @@ class LogFile:
         if var.bytes == 1:
             self.cFile.appendLine('{data} = *(ptr++);'.format(data=var.getPtr('data')),comment="Copy the '{var}' variable".format(var=var.name))
         else:
-            self.cFile.appendLine('Copy{sign}{bits}FromBuffer(&({data}),ptr);'.format(
+            self.cFile.appendLine('Copy{sign}{bits}FromBuffer(&({data}),&ptr);'.format(
                             sign='I' if var.isSigned() else 'U',
                             bits=var.bytes*8,
                             data=var.getPtr('data')),
                             comment="Copy the '{var}' variable ({n} bytes)".format(var=var.name,n=var.bytes))
-            self.cFile.appendLine('ptr += {size};'.format(size=var.bytes))
                 
         if count:
             self.cFile.appendLine('count += {size};'.format(size=var.bytes))
