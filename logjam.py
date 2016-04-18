@@ -36,16 +36,6 @@ class LogFile:
         
         self.hFile = CodeWriter(hfile)
         self.cFile = CodeWriter(cfile)
-    
-    def createHeaderEntry(self):
-        self.hFile.startIf(headerDefineName(self.prefix),invert=True)
-        self.hFile.define(headerDefineName(self.prefix))
-        
-    def createHeaderExit(self):
-        self.hFile.endIf()
-        
-    def createHeaderInclude(self):
-        self.cFile.include('"{file}.h"'.format(file=headerFileName(self.prefix)))
         
     def constructCodeFile(self):
         
@@ -54,7 +44,7 @@ class LogFile:
         self.cFile.append(AutogenString(self.source))
         
         #include the header file
-        self.createHeaderInclude()
+        self.cFile.include('"{file}.h"'.format(file=headerFileName(self.prefix)))
         
         self.cFile.appendLine()
         
@@ -101,7 +91,8 @@ class LogFile:
         
         self.hFile.append(AutogenString(self.source))
         
-        self.createHeaderEntry()
+        self.hFile.startIf(headerDefineName(self.prefix),invert=True)
+        self.hFile.define(headerDefineName(self.prefix))
         
         self.hFile.appendLine()
         self.hFile.include('"' + LOGJAM_HEADER_NAME + '.h"', comment='common LogJam routines')
@@ -219,7 +210,7 @@ class LogFile:
         self.hFile.appendLine()
         self.hFile.externExit()
         
-        self.createHeaderExit()
+        self.hFile.endIf()
     
     def saveFiles(self):
         
