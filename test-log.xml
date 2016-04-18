@@ -7,8 +7,10 @@
     <Variable name="monkeys" type="unsigned8"/>
     <Variable name="uptime" type="unsigned32" comment="Amount of time the system has been alive" units="ms"/>
     <Variable name="power" type="signed16" units="kW" scaler="1000"/>
-    <Variable name="data1" type="unsigned8"/>
-    <Variable name="data2" type="unsigned8"/>
-    <Variable name="data3" type="unsigned8"/>
-    <Variable name="data4" type="unsigned8"/>
+    <Variable name="data 1" type="unsigned8"/>
+    <Variable name="data 2" type="unsigned8"/>
+    <Variable name="data 3" type="unsigned8"/>
+    <Variable name="data 4" type="unsigned8"/>
+    
+    <Variable name="Scaled Variable" type="signed32" scaler="250"/>
 </Logging>

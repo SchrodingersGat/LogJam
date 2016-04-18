@@ -74,10 +74,10 @@ class LogVariable(LogElement):
         
     #datatype definition string (with comment appended)
     def dataString(self):
-        return "{datatype} {name}; //{comment}".format(
+        return "{datatype} {name}; {comment}".format(
                 datatype = self.format,
                 name = self.name,
-                comment = self.comment)
+                comment = '// ' + self.comment if self.comment else '')
                 
     #wrap a given function name
     def getFunctionName(self, fnName):
