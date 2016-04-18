@@ -13,4 +13,9 @@
     <Variable name="data 4" type="unsigned8"/>
     
     <Variable name="Scaled Variable" type="signed32" scaler="250"/>
+    
+    <Event name="Test Event"/>
+    <Event name="New Setpoint">
+        <Variable name="setpoint" type="unsigned8"/>
+    </Event>
 </Logging>

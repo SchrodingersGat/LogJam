@@ -85,7 +85,7 @@ class LogVariable(LogElement):
         
     #get the pointer to the data type within a given struct
     def getPtr(self, struct='data'):
-        return '{struct}->{name}'.format(struct=struct,name=self.name)
+        return '{struct}{name}'.format(struct=struct+"->" if struct else '',name=self.name)
         
     #add the variable to the struct
     def addVariable(self, struct):
@@ -114,7 +114,7 @@ class LogEvent(LogElement):
                 self.variables.append(LogVariable(prefix,child))
                 
     def eventPrototype(self, pointer='ptr', define=True):
-        args = ['uint8_t **{ptr}'.format(ptr=pointer)]
+        args = ['uint8_t *{ptr}'.format(ptr=pointer)]
         
         for v in self.variables:
             args.append('{type}{name}'.format(type=v.format+' ' if define else '',name=v.name))

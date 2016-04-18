@@ -88,11 +88,12 @@ class LogFile:
         self.unitsByIndexFunction()
         self.valueByIndexFunction()
         
-        self.cFile.appendLine()
-        self.cFile.appendLine(comment='Functions to copy *events* to/from a buffer')
-        
-        for e in self.events:
-            self.addEventCopyFuncs(e)
+        if len(self.events) > 0:
+            self.cFile.appendLine()
+            self.cFile.appendLine(comment='Functions to copy *events* to/from a buffer')
+            
+            for e in self.events:
+                self.addEventCopyFuncs(e)
        
     def constructHeaderFile(self):
         
@@ -159,7 +160,7 @@ class LogFile:
         self.hFile.appendLine(comment='Each function returns the number of bytes written to the log')   
         #functions for the events
         for e in self.events:
-            self.hFile.appendLine('inline void {func};'.format(func=e.eventPrototype()))
+            self.hFile.appendLine('inline uint8_t {func};'.format(func=e.eventPrototype()))
         
         self.hFile.startComment()
         self.hFile.appendLine("Global Functions:")
@@ -230,11 +231,24 @@ class LogFile:
         
     def addEventCopyFuncs(self, e):
         #copy TO buffer
-        self.cFile.appendLine('inline void {func}'.format(func=e.eventPrototype(define=False)))
+        self.cFile.appendLine('inline uint8_t {func}'.format(func=e.eventPrototype()))
         self.cFile.openBrace()
         
-        self.cFile.closeBrace()
+        #copy across the event type
+        self.cFile.appendLine('*(ptr++) = {evt};'.format(evt=e.getEnumString()),comment='Copy the event type to the buffer')
         
+        if len(e.variables) > 0:
+            self.cFile.appendLine()
+            for v in e.variables:
+                self.copyVarToBuffer(v,ptr=None)
+        
+        
+        n = 1 + sum([v.bytes for v in e.variables])
+        
+        self.cFile.appendLine()
+        self.cFile.appendLine('return {n};'.format(n=n),comment='Number of bytes copied')
+        
+        self.cFile.closeBrace()
         self.cFile.appendLine()
         
     #create the struct of the variables
@@ -443,11 +457,11 @@ class LogFile:
         if count:
             self.cFile.appendLine('count += {size};'.format(size=bf_size))
         
-    def copyVarToBuffer(self, var, count=False):
+    def copyVarToBuffer(self, var, ptr='data', count=False):
     
         #single byte, just copy across
         if var.bytes == 1: 
-            self.cFile.appendLine('*(ptr++) = {data};'.format(data=var.getPtr('data')),comment="Copy the '{var}' variable (1 byte)".format(var=var.name))
+            self.cFile.appendLine('*(ptr++) = {data};'.format(data=var.getPtr(ptr)),comment="Copy the '{var}' variable (1 byte)".format(var=var.name))
         else:
             self.cFile.appendLine('Copy{sign}{bits}ToBuffer({data},&ptr);'.format(
                             sign='I' if var.isSigned() else 'U',
