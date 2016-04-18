@@ -6,12 +6,31 @@ import re
 
 from logjam import LogVariable, LogFile
 
+print("Here:",os.getcwd())
+
+def thisFolder():
+    #python script is argument 0
+    folder = os.path.abspath(os.path.dirname(sys.argv[0]))
+    return folder
+
+def copySourceFile(name, outputdir = None):
+
+    filename = os.path.join(thisFolder(), 'hand-code', name)
+    if outputdir:
+        output = os.path.join(outputdir, name)
+    else:
+        output = name
+    say("Copying {src} to {dest}".format(src=filename,dest=output))
+    shutil.copyfile(filename, output)
+
 def say(*arg):
     print(" ".join(map(str,arg)))
 
 def close(*arg):
     say(*arg)
     sys.exit(0)
+
+say(sys.argv)
     
 #get an xml file
 if len(sys.argv) < 2 or not sys.argv[1].endswith(".xml"):
@@ -99,7 +118,7 @@ with open(xml_file, 'rt') as xml:
     
 #copy across the 'common' files
 if outputdir:
-    shutil.copyfile('logjam_common.h',os.path.join(outputdir,'logjam_common.h'))
-    shutil.copyfile('logjam_common.c',os.path.join(outputdir,'logjam_common.c'))
+    copySourceFile('logjam_common.h',outputdir = outputdir)
+    copySourceFile('logjam_common.c',outputdir = outputdir)
 
 close("Complete!")
