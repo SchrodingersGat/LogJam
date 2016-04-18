@@ -3,23 +3,24 @@ from logjam_common import *
 
 class LogVariable:
 
-    #prefix = name of the 'device'
-    #name = name of this variable
-    #format = primitive datatype
-    #comment = comment string
-    def __init__(self, prefix, name, format, title, comment=None, units=None, scaler=1.0):
+    def __init__(self, prefix, xmlTag):
+    
         self.prefix = prefix
-        self.name = name
+        #extract information from an xml tag
+        attr = xmlTag.attrib
         
-        if self.name == 'data':
-            raise NameError("Logging variable cannot be called 'data'")
+        self.name = attr.get('name',None)
+        if not self.name:
+            raise NameError('Could not find name in {tag}'.format(tag=attr))
+        if self.name.lower() in ['data','name','var','type']:
+            raise NameError('{name} is an invalid name for a variable'.format(name=self.name))
+        self.format=stringToCPrimitive(attr.get('type',None))
         
-        self.format = stringToCPrimitive(format)
-        self.comment = "//!< " + str(comment) if comment else ""
-        self.units = units
-        self.scaler = scaler
+        self.title = attr.get('title',self.name)
         
-        self.title = title
+        self.scaler = int(attr.get('scaler',1))
+        self.units = attr.get('units',None)
+        self.comment = attr.get('comment',None)
         
         self.bytes = extractNumBytesFromVarType(self.format)
         

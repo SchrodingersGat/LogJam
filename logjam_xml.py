@@ -96,26 +96,11 @@ with open(xml_file, 'rt') as xml:
     
     #extract the children
     for node in root:
-        a = node.attrib
         
         if node.tag == 'Variable':
-            
-            name = a.get('name',None)
-            datatype = a.get('type',None)
-            comment = a.get('comment',None)
-            units = a.get('units',None)
-            scaler = float(a.get('scaler',1))
-            title = a.get('title',name)
-            
-            if not name:
-                print('Name missing for', a)
-                continue
-            if not datatype:
-                print('Type missing for', a)
-                continue
-                
-            variables.append(LogVariable(prefix,name,datatype,title,comment,units=units, scaler=scaler))
         
+            variables.append(LogVariable(prefix,node))
+            
     lf = LogFile(variables, prefix, version, os.path.basename(xml_file), outputdir=outputdir)
     
     lf.saveFiles()
