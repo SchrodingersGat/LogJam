@@ -2,11 +2,11 @@ import re, os
 import time
 from math import ceil
 
-
 from code_writer import CodeWriter
 from logjam_version import AutogenString
 
 #convert a 'camelCase' string to a 'CAMEL_CASE' string
+#thanks to http://stackoverflow.com/questions/1175208/elegant-python-function-to-convert-camelcase-to-snake-case
 def camel2define(string):
     r1 = re.compile('(.)([A-Z][a-z]+)')
     r2 = re.compile('([a-z0-9])([A-Z])')
@@ -16,19 +16,22 @@ def camel2define(string):
     
     return s2.upper()
 
+#return c code to left shift by <n> bytes
 def leftShiftBytes(n):
     return leftShiftBits(n*8)
 
+#return c code to left shift by <n> bits
 def leftShiftBits(n):
     if n == 0:
         return ''
     else:
         return ' << {n}'.format(n=int(n))
 
-#return a c-code string to right shift
+#return c code to right shift by <n> bytes
 def rightShiftBytes(n):
     return rightShiftBits(n*8)
     
+#return c code to right shift by <n> bits
 def rightShiftBits(n):
     if n == 0:
         return ''
@@ -78,13 +81,9 @@ def stringToCPrimitive(string):
     res = re.match('u*int(\d*)',s)
     
     if not len(res.groups()) == 1:
-        raise ValueError("{s} is not of correct format".format())
+        raise ValueError("{s} is not of correct format".format(s=string))
         
     if not s.endswith("_t"):
         s += "_t"
         
     return s
-    
-    
-LOGJAM_HEADER_NAME = "logjam_common"
-LOGJAM_DEFINE_NAME = "_LOGJAM_COMMON_H_"

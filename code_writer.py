@@ -7,9 +7,11 @@ class CodeWriter:
         
         self.clear()
         
+    #increment the tab position
     def tabIn(self):
         self.tabs += 1
         
+    #decrement the tab position
     def tabOut(self):
         if self.tabs > 0:
             self.tabs -= 1
@@ -96,24 +98,27 @@ class CodeWriter:
         self.tabIn()
     
     #tab-out and write the close-brace
-    def closeBrace(self):
+    def closeBrace(self, newline=True):
         self.tabOut()
-        self.appendLine('}')
+        self.append('}}{newline}'.format(newline='\n' if newline else ''))
         
     #start a bulk comment
     def startComment(self):
         self.appendLine("/*")
         self.comment = True
         
+    #finish a bulk comment
     def finishComment(self):
         self.comment = False
         self.appendLine("*/")
         
+    #start a switch (case) statement
     def startSwitch(self, switch):
         self.switch.append(switch)
         self.appendLine('switch ({sw})'.format(sw=switch))
         self.openBrace()
         
+    #end a switch statement, and demark end of switch
     def endSwitch(self):
         self.tabOut()
         self.append('}')
@@ -121,19 +126,22 @@ class CodeWriter:
             self.appendLine(comment=' ~switch ({sw})'.format(sw=self.switch.pop()))
         self.appendLine()
         
+    #add a new case to a switch statement
     def addCase(self, case):
         self.appendLine('case {case}:'.format(case=case))
         self.tabIn()
         
+    #return from a case, with the specified value
     def returnFromCase(self, value=None):
         self.appendLine('return{val};'.format(val=' '+str(value) if value else ''))
         self.tabOut()
         
+    #break from case (no return value)
     def breakFromCase(self):
         self.appendLine('break;')
         self.tabOut()
         
-    #start an #ifdef block
+    #start an #if(n)def block
     def startIf(self, define, invert=False, comment=None):
         self.defs.append(define)
         if comment:
@@ -144,6 +152,7 @@ class CodeWriter:
         else:
             self.appendLine('#ifdef ' + define)
         
+    #end an #if(n)def block
     def endIf(self):
         self.append("#endif ")
         if len(self.defs) > 0:
