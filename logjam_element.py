@@ -18,7 +18,12 @@ class LogElement:
         if self.name.lower() in ['data','name','var','type']:
             raise NameError('{name} is an invalid name for a variable'.format(name=self.name))
         
-        self.title = attr.get('title',self.name)
+        #the title is the 'unformatted' name, allowing for space-separated titles while observing variable name requirements
+        self.title = self.name
+        
+        #convert space separated names to CamelCase
+        self.name = ''.join([el.capitalize() for el in self.name.split(' ')])
+        
         self.comment = attr.get('comment',None)
         
     def getEnumString(self):
