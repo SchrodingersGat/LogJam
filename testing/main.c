@@ -22,6 +22,8 @@ int main(void)
     LogTest_AddUptime(&data,&bits,1234);
     LogTest_AddData4(&data,&bits,1);
 
+    LogTest_AddScaledVariable(&data,&bits,-1234);
+
     printf("\nData:\n");
     for (i=0;i<LOG_TEST_VARIABLE_COUNT;i++)
     {

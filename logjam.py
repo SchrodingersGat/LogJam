@@ -606,7 +606,7 @@ class LogFile:
         
         self.cFile.startSwitch('index')
         
-        fn = lambda var: 'Log{prefix}_Decode{name}(data,str)'.format(prefix=self.prefix.capitalize(),name=var.name.capitalize())
+        fn = lambda var: 'Log{prefix}_Decode{name}(data,str)'.format(prefix=self.prefix.capitalize(),name=var.name)
         
         self.createCaseEnumeration(blankFunction=fn)
         
