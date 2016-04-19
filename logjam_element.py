@@ -83,9 +83,6 @@ class LogVariable(LogElement):
     def getFunctionName(self, fnName):
         return "{fn}{name}".format(name=self.name, fn=fnName.capitalize())
         
-    #get the pointer to the data type within a given struct
-    def getPtr(self, struct='data'):
-        return '{struct}{name}'.format(struct=struct+"->" if struct else '',name=self.name)
         
     #add the variable to the struct
     def addVariable(self, struct):
@@ -100,6 +97,14 @@ class LogVariable(LogElement):
     def isSigned(self):
         return self.format.startswith('i')
         
+    #return the sprintf pattern required to properly decode a variable to a string
+    def getStringCast(self):
+        return '%{dot}{type}'.format(
+                dot = '.{n}'.format(n=ceil(log(self.scaler) / log(10))) if self.scaler > 1 else '',
+                type = 'f' if self.scaler > 1 else '{sign}'.format(sign='d' if self.isSigned() else 'u')
+                )
+        
+
 class LogEvent(LogElement):
     def __init__(self, prefix, xmlTag):
         LogElement.__init__(self, prefix, xmlTag)
@@ -113,13 +118,18 @@ class LogEvent(LogElement):
             if child.tag == 'Variable':
                 self.variables.append(LogVariable(prefix,child))
                 
-    def eventPrototype(self, pointer='ptr', define=True):
-        args = ['uint8_t *{ptr}'.format(ptr=pointer)]
+    def eventSize(self):
+        return 1 + sum([v.bytes for v in self.variables])
+                
+    def eventPrototype(self,pointer='ptr', define=True):
+        args = ['uint8_t **{ptr}'.format(ptr=pointer)]
         
         for v in self.variables:
             args.append('{type}{name}'.format(type=v.format+' ' if define else '',name=v.name))
             
-        return 'Log{pref}_Event_{name}({args})'.format(pref=self.prefix,name=self.name,args=', '.join(args))
+        return 'Log{pref}_EventAdd_{name}({args})'.format(pref=self.prefix,name=self.name,args=', '.join(args))
                 
+    def toStringPrototype(self):
+        return 'void Log{pref}_EventToString_{name}(uint8_t **ptr, char *str)'.format(pref=self.prefix,name=self.name)
         
         

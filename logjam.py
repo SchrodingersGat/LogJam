@@ -80,10 +80,18 @@ class LogFile:
         
         if len(self.events) > 0:
             self.cFile.appendLine()
-            self.cFile.appendLine(comment='Functions to copy *events* to/from a buffer')
+            self.cFile.appendLine(comment='Functions to copy *events* to a buffer')
             
             for e in self.events:
                 self.addEventCopyFuncs(e)
+                
+            self.cFile.appendLine(comment='Decode a {pref} event to a string'.format(pref=self.prefix))
+            self.eventsToStringFunction()
+            
+            self.cFile.appendLine()
+            self.cFile.appendLine(comment='Functions for formatting individual events to a string')
+            for e in self.events:
+                self.eventToStringFunc(e)
        
     def constructHeaderFile(self):
         
@@ -95,7 +103,7 @@ class LogFile:
         self.hFile.define(headerDefineName(self.prefix))
         
         self.hFile.appendLine()
-        self.hFile.include('"' + LOGJAM_HEADER_NAME + '.h"', comment='common LogJam routines')
+        self.hFile.include('"logjam_common.h"', comment='common LogJam routines')
         
         self.hFile.appendLine()
         
@@ -148,10 +156,22 @@ class LogFile:
         self.hFile.appendLine()
         
         self.hFile.appendLine(comment='Functions to copy various log events to logging buffer')
-        self.hFile.appendLine(comment='Each function returns the number of bytes written to the log')   
+        self.hFile.appendLine(comment='Each function returns the number of bytes written to the log') 
+        self.hFile.appendLine(comment='Pointer is automatically incremented as required')
         #functions for the events
         for e in self.events:
             self.hFile.appendLine('inline uint8_t {func};'.format(func=e.eventPrototype()))
+        
+        self.hFile.appendLine();
+        self.hFile.appendLine(comment='Function to extract an event from a buffer, and format it as a human-readable string')
+        self.hFile.appendLine(self.eventsToStringPrototype() + ';')
+        
+        self.hFile.appendLine()
+        self.hFile.appendLine(comment='Functions for turning individual events into strings')
+        for e in self.events:
+            self.hFile.appendLine(e.toStringPrototype() + ';',comment='Format the {evt} event into a string'.format(evt=e.getEnumString()))
+        
+        self.hFile.appendLine()
         
         self.hFile.startComment()
         self.hFile.appendLine("Global Functions:")
@@ -226,18 +246,15 @@ class LogFile:
         self.cFile.openBrace()
         
         #copy across the event type
-        self.cFile.appendLine('*(ptr++) = {evt};'.format(evt=e.getEnumString()),comment='Copy the event type to the buffer')
+        self.cFile.appendLine('*(*ptr++) = {evt};'.format(evt=e.getEnumString()),comment='Copy the event type to the buffer')
         
         if len(e.variables) > 0:
             self.cFile.appendLine()
             for v in e.variables:
-                self.copyVarToBuffer(v,ptr=None)
-        
-        
-        n = 1 + sum([v.bytes for v in e.variables])
+                self.copyVarToBuffer(v,struct='',pointer='ptr')
         
         self.cFile.appendLine()
-        self.cFile.appendLine('return {n};'.format(n=n),comment='Number of bytes copied')
+        self.cFile.appendLine('return {n};'.format(n=e.eventSize()),comment='Number of bytes copied')
         
         self.cFile.closeBrace()
         self.cFile.appendLine()
@@ -289,19 +306,7 @@ class LogFile:
         self.cFile.appendLine(comment='Pointer to *str must have enough space allocated!')
         self.cFile.appendLine(self.decodePrototype(var))
         self.cFile.openBrace()
-        line = ''
-        #perform scaling!
-        scale = var.scaler > 1
-        
-        if not scale:
-            pattern = '"%{sign}",{var}'.format(sign='u' if var.format.startswith('u') else 'd',var=var.getPtr('data'))
-        else:
-            pattern = '"%.{n}f",(float) {var} / {scaling}'.format(
-                n = ceil(log(var.scaler) / log(10)),
-                var=var.getPtr('data'),
-                scaling=var.scaler)
-            
-        self.cFile.appendLine('sprintf(str,{patt});'.format(patt=pattern))
+        self.cFile.appendLine('sprintf(str,"{patt}",data->{var});'.format(patt=var.getStringCast(),var=var.name))
         self.cFile.closeBrace()
         self.cFile.appendLine()
         pass
@@ -448,30 +453,27 @@ class LogFile:
         if count:
             self.cFile.appendLine('count += {size};'.format(size=bf_size))
         
-    def copyVarToBuffer(self, var, ptr='data', count=False):
-    
-        #single byte, just copy across
-        if var.bytes == 1: 
-            self.cFile.appendLine('*(ptr++) = {data};'.format(data=var.getPtr(ptr)),comment="Copy the '{var}' variable (1 byte)".format(var=var.name))
-        else:
-            self.cFile.appendLine('Copy{sign}{bits}ToBuffer({data},&ptr);'.format(
+    def copyVarToBuffer(self, var, struct='data->', pointer='&ptr', count=False):
+        self.cFile.appendLine('Copy{sign}{bits}ToBuffer({struct}{name}, {ptr});'.format(
                             sign='I' if var.isSigned() else 'U',
                             bits=var.bytes*8,
-                            data=var.getPtr('data')),
+                            struct=struct,
+                            name=var.name,
+                            ptr = pointer),
                             comment= "Copy the '{var}' variable ({n} bytes)".format(var=var.name,n=var.bytes))            
             
         if count:
             self.cFile.appendLine('count += {size};'.format(size=var.bytes))
             
-    def copyVarFromBuffer(self, var, count=False):
+    def copyVarFromBuffer(self, var, struct='data->',pointer='&ptr',count=False):
     
-        if var.bytes == 1:
-            self.cFile.appendLine('{data} = *(ptr++);'.format(data=var.getPtr('data')),comment="Copy the '{var}' variable (1 byte)".format(var=var.name))
-        else:
-            self.cFile.appendLine('Copy{sign}{bits}FromBuffer(&({data}),&ptr);'.format(
+        self.cFile.appendLine('Copy{sign}{bits}FromBuffer({struct}{name}, {ptr});'.format(
                             sign='I' if var.isSigned() else 'U',
                             bits=var.bytes*8,
-                            data=var.getPtr('data')),
+                            struct=struct,
+                            name=var.name,
+                            ptr = pointer,
+                            ),
                             comment="Copy the '{var}' variable ({n} bytes)".format(var=var.name,n=var.bytes))
                 
         if count:
@@ -540,9 +542,12 @@ class LogFile:
         
         
     #enumerate through all the varibles in the struct, perform 'function' for each
-    def createCaseEnumeration(self, blankFunction=None, returnFunction=None):
+    def createCaseEnumeration(self, vars=None, blankFunction=None, returnFunction=None):
         
-        for var in self.variables:
+        if not vars:
+            vars = self.variables
+        
+        for var in vars:
             self.cFile.addCase(var.getEnumString())
             
             if blankFunction:
@@ -616,6 +621,72 @@ class LogFile:
         self.createCaseEnumeration(blankFunction=fn)
         
         self.cFile.endSwitch()
+        
+        self.cFile.closeBrace()
+        self.cFile.appendLine()
+        
+    #function to turn an event into a string
+    #pass a pointer to where the event data starts
+    #pointer will be auto-incremented
+    #returns 'true' if an event was extracted, else false
+    def eventsToStringPrototype(self):
+        return 'bool Log{pref}_EventToString(uint8_t **ptr, char *str)'.format(pref=self.prefix)
+        
+    def eventsToStringFunction(self):
+        self.cFile.startComment()
+        self.cFile.appendLine('Extract an event from a buffer, given a pointer to the buffer, and a pointer to where the event will be strung')
+        self.cFile.appendLine('Function will auto-increment the pointer as necessary')
+        self.cFile.appendLine('Returns true if event was extracted and formatted as string, else returns false')
+        self.cFile.finishComment()
+        self.cFile.appendLine(self.eventsToStringPrototype())
+        self.cFile.openBrace()
+        self.cFile.appendLine()
+        
+        self.cFile.appendLine('#error this needs to be completed')
+        self.cFile.startSwitch('TBD')
+        
+        #function for formatting a given even to a string
+        fn = lambda var: 'Log{pref}_EventToString_{name}(ptr,str)'.format(pref=var.prefix,name=var.name)
+        
+        self.createCaseEnumeration(vars = self.events, blankFunction = fn)
+        self.cFile.addCase('default')
+        self.cFile.returnFromCase(value='false')
+        self.cFile.endSwitch()
+        self.cFile.appendLine('return true;',comment='Default return case')
+        self.cFile.closeBrace()
+        
+    #func for formatting an individual func to a string
+    def eventToStringFunc(self, evt):
+        self.cFile.appendLine(comment='Format a {evt} event into a readable string'.format(evt=evt.name))
+        self.cFile.appendLine(comment='Auto-increment the **ptr pointer')
+        self.cFile.appendLine(evt.toStringPrototype())
+        self.cFile.openBrace()
+        
+        #define vars for this event
+        for v in evt.variables:
+            #local var for temp storage of data
+            self.cFile.appendLine('{fmt} {name};'.format(fmt=v.format,name=v.name),comment="Temporary storage for '{var}' variable".format(var=v.name))
+        
+        self.cFile.appendLine()
+        
+        if len(evt.variables) > 0:
+            self.cFile.appendLine(comment='Copy the event variables from the buffer')
+        
+            for v in evt.variables:
+                self.copyVarFromBuffer(v,struct='&',pointer='ptr')
+
+            self.cFile.appendLine()
+            
+        #compile a list of variables associated with this event
+        fmts = " ".join([v.getStringCast() for v in evt.variables])
+        vars = ", ".join([v.name for v in evt.variables])
+        
+        self.cFile.appendLine('sprintf(str,"Event: {evt}{sep}{formats}"{comma}{vars});'.format(
+                evt = evt.getEnumString(),
+                sep = ' -> ' if len(fmts) > 0 else '',
+                formats = fmts,
+                comma = ', ' if len(vars) > 0 else '',
+                vars = vars))
         
         self.cFile.closeBrace()
         self.cFile.appendLine()
