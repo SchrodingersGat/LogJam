@@ -128,7 +128,10 @@ class CodeWriter:
         
     #add a new case to a switch statement
     def addCase(self, case):
-        self.appendLine('case {case}:'.format(case=case))
+        if case.lower() == 'default':
+            self.appendLine('default:')
+        else:
+            self.appendLine('case {case}:'.format(case=case))
         self.tabIn()
         
     #return from a case, with the specified value
