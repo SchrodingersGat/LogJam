@@ -280,7 +280,7 @@ class LogFile:
         self.hFile.appendLine('} ' + dataStructName(self.prefix) + ';')
         
     def additionPrototype(self,var):
-        return self.createVariableFunction(var,'add',inline=True)
+        return self.createVariableFunction(var,'add',returnType='bool',extra=[('onlyIfNew','bool')])
         
     #create the function for adding a variable to the logging structure
     def createAdditionFunction(self, var):
@@ -291,9 +291,19 @@ class LogFile:
                         
         self.cFile.appendLine(self.additionPrototype(var))
         self.cFile.openBrace()
-        self.cFile.appendLine(var.setBit('selection'))
+        self.cFile.appendLine('if (onlyIfNew == true)',comment='Ignore value if it is the same as the value already stored')
+        self.cFile.openBrace()
+        self.cFile.appendLine('if (data->{var} == {var})'.format(var=var.name))
+        self.cFile.tabIn()
+        self.cFile.appendLine('return false;')
+        self.cFile.tabOut()
+        self.cFile.closeBrace()
+        self.cFile.appendLine()
+        self.cFile.appendLine(var.setBit('selection'),comment='Set the appropriate bit')
         #now actually add the variable in
         self.cFile.appendLine(var.addVariable('data'))
+        self.cFile.appendLine()
+        self.cFile.appendLine('return true;')
         self.cFile.closeBrace()
         self.cFile.appendLine()
         
@@ -319,7 +329,7 @@ class LogFile:
             extra = []
         
         if not blank:
-            extra.append(('{ptr}{name}'.format(ptr='*' if ptr else '',name=var.name),var.format))
+            extra = [('{ptr}{name}'.format(ptr='*' if ptr else '',name=var.name),var.format)] + extra
         
         return self.createFunctionPrototype(name,extra=extra,**params)
         
