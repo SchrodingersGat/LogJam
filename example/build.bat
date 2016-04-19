@@ -1,0 +1,1 @@
+python ..\logjam_xml.py example.xml .
